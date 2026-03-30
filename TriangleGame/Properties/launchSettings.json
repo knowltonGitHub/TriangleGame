@@ -1,7 +1,8 @@
-{
+﻿{
   "profiles": {
     "Windows Machine": {
       "commandName": "Project",
+      "dotnetRunMessages": true,
       "nativeDebugging": false
     }
   }

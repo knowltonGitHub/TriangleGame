@@ -1,0 +1,5 @@
+Isolation: You are strictly forbidden from reading or modifying any file not explicitly "unblocked" in .cursorignore.
+
+Proof of Work: For every task, you must provide a terminal-based verification (e.g., grep or ls) proving you did not access restricted directories like /Platforms/ or /Resources/.
+
+No Assumptions: Do not implement "standard" MAUI patterns (like MVVM or DI) unless they are explicitly requested and siloed.

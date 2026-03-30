@@ -1,0 +1,12 @@
+﻿/*
+!/.cursorignore
+!/.cursorrules
+
+# Allow the project folder for traversal but ignore all contents
+!/TriangleGame/
+/TriangleGame/*
+
+# Surgical exceptions for work files only
+!/TriangleGame/TriangleGame.csproj
+!/TriangleGame/MainPage.xaml
+!/TriangleGame/MainPage.xaml.cs

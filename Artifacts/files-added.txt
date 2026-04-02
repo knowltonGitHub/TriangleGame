@@ -1,5 +1,0 @@
-﻿# Files and folders added by the prompt that created Artifacts/ and these listings.
-# Paths relative to repository root.
-
-Artifacts/files-before-prompt.txt
-Artifacts/files-added.txt

@@ -1,0 +1,51 @@
+﻿---
+description: Append every substantive edit to CHANGELOG/YYYY-MM-DD.md with what/why.
+alwaysApply: true
+---
+
+# Daily change log (assistant)
+
+## Required
+
+After **any substantive code or config edit** (not trivial typo-only fixes), append an entry to:
+
+`CHANGELOG/YYYY-MM-DD.md`
+
+Use **today's calendar date** in the filename as `YYYY-MM-DD` (the day in the user''s context when the change is made).
+
+## If today's file does not exist
+
+Create it with this header:
+
+```markdown
+# Change log — YYYY-MM-DD
+
+Convention: one file per calendar day, name `CHANGELOG/YYYY-MM-DD.md`. Newest entries at the **top** (below this heading).
+
+---
+```
+
+## Entry format (newest first)
+
+Add a new section **above** older entries for that day:
+
+```markdown
+## Short title (optional: area or feature)
+
+- **Files:** `path/one`, `path/two`
+- **What:** One or two sentences on behavior or structure changed.
+- **Why:** Reason, user request, or bug being fixed.
+```
+
+Keep it factual; no essays. If many files: group by concern or list the important paths.
+
+## Scope
+
+- Log edits **you** (the assistant) make in this workspace during the session.
+- If the user edits the same files afterward, do not rewrite history—only log what the assistant changed.
+
+## Do not
+
+- Replace git; this is a human-readable supplement.
+- Skip logging because "it was small" if it changed behavior, public API, or data formats.
+

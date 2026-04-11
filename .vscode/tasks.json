@@ -1,0 +1,17 @@
+﻿{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Open triangle playground (Chrome)",
+      "type": "shell",
+      "command": "${workspaceFolder}/Sandbox/open-in-chrome.bat",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "silent",
+        "panel": "shared",
+        "showReuseMessage": false,
+        "close": true
+      }
+    }
+  ]
+}

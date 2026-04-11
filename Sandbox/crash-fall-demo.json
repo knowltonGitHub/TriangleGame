@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "layout": {
+    "side": 34,
+    "originX": 24,
+    "originY": 24,
+    "gridRows": 22,
+    "gridCols": 26,
+    "topBar": { "minX": 120, "maxX": 780, "minY": 40, "maxY": 220 },
+    "stem": { "minX": 330, "maxX": 570, "minY": 220, "maxY": 640 },
+    "containerPolygon": [[120, 40], [350, 200], [780, 40], [780, 640], [120, 640]],
+    "fallCrashDemo": true
+  },
+  "rotationSteps": 0,
+  "keys": [],
+  "onIds": [],
+  "historyIndex": 0,
+  "meta": {
+    "note": "Turn any triangle ON, click Fall 1 tick; Error at fallTickSequential (intentional). Remove fallCrashDemo from layout or open index.html without ?crash=1 for normal fall."
+  }
+}

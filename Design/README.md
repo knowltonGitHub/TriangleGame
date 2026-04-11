@@ -1,12 +1,17 @@
 ﻿# Design (single place for game design work)
 
+## Authoritative design spec
+
+**Living doc:** `docs/GAME_DESIGN.md` (win/lose, legal moves, phase CSV links, asked/answered tracking).  
+Update it whenever design decisions land—no separate prompt needed.
+
 ## Layout
 
 | Folder | Purpose |
 |--------|---------|
-| `docs/movement-rules/` | Written Q&A and movement notes (e.g. `Gravity.md`). |
-| `scripts/` | Python visualization and geometry experiments (`labeled.py`, `abc.py`, ...). Run scripts from this folder. |
-| `assets/mockups/` | PNG mockups (`TriangleContainer*.png`, `TriangleField.png`, ...). |
+| `docs/` | **GAME_DESIGN.md** (main spec), `movement-rules/` (`Gravity.md`, `TRANSITIONS.csv`, …). |
+| `scripts/` | Python visualization and geometry experiments (`labeled.py`, `abc.py`, …). Run scripts from this folder. |
+| `assets/mockups/` | PNG mockups (`TriangleContainer*.png`, `TriangleField.png`, …). |
 | `archives/` | Zips and older repo snapshots (`repo-snapshots/`, `templates.zip`). |
 
 ## Cursor planning artifact

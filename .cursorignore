@@ -10,3 +10,11 @@
 !/TriangleGame/TriangleGame.csproj
 !/TriangleGame/MainPage.xaml
 !/TriangleGame/MainPage.xaml.cs
+
+# Playground: visible to Cursor (separate from MAUI)
+!/Sandbox/
+!/Sandbox/**
+
+# VS Code / Cursor tasks (open playground, etc.)
+!/.vscode/
+!/.vscode/**

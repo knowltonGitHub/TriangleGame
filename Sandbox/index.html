@@ -1,0 +1,181 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Triangle playground</title>
+<!-- Bump PLAYGROUND_BUILD in the script when you change this file (see var near top of IIFE). -->
+<style>
+:root{--bg:#1a1d23;--p:#252931;--t:#e8eaed;--m:#9aa0a6;--s:#5f6368;--on:#4ade80;--os:#22c55e;--off:rgba(255,255,255,.11)}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,sans-serif;background:var(--bg);color:var(--t);min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:12px}
+h1{font-size:1.1rem;margin:0 0 8px}
+.h{color:var(--m);font-size:.85rem;margin-bottom:12px;max-width:56rem;text-align:center}
+.tb{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:8px;padding:10px 14px;background:var(--p);border-radius:10px;max-width:min(100%,980px)}
+button,.fl{background:#3c4043;color:var(--t);border:1px solid var(--s);padding:8px 12px;border-radius:8px;cursor:pointer;font-size:.85rem}
+button:disabled{opacity:.45;cursor:not-allowed}
+.fl input{display:none}
+.sw{background:var(--p);border-radius:12px;padding:2px;overflow:auto;max-width:100%;border:1px solid #3c4043;max-height:min(52vh,720px)}
+#w{display:flex;flex-direction:column;align-items:stretch}
+#w>svg{align-self:center;flex-shrink:0}
+.board-build-banner{font-size:1.15rem;font-weight:800;letter-spacing:.08em;color:var(--t);padding:10px 14px 8px;text-align:left;background:var(--bg);border-bottom:2px solid #4ade8044;position:sticky;top:0;z-index:3;pointer-events:none;margin:0;border-radius:10px 10px 0 0;flex-shrink:0}
+svg{display:block;overflow:visible}
+path.tessGrid{fill:none;stroke:rgba(255,255,255,.2);stroke-width:1;stroke-linecap:square;stroke-linejoin:miter;pointer-events:none;shape-rendering:geometricPrecision}
+path.meshOff{fill:var(--off);stroke:var(--off);stroke-width:.65;stroke-linejoin:miter;shape-rendering:geometricPrecision}
+path.meshOn{fill:var(--on);stroke:var(--on);stroke-width:.65;stroke-linejoin:miter;shape-rendering:geometricPrecision}
+path.hit{stroke:none;fill:rgba(0,0,0,.01);cursor:pointer}
+path.hit:hover{fill:rgba(255,255,255,.09)}
+text.L{pointer-events:none;font-size:11px;fill:var(--t);text-anchor:middle;dominant-baseline:central;font-weight:600}
+text.L.numMuted{fill:var(--m)}
+svg.hide-nums text.L{display:none}
+text.rowR{pointer-events:none;font-size:10px;fill:#8ab4f8;text-anchor:end;dominant-baseline:central;opacity:.95;font-weight:600}
+pre.o{margin-top:8px;padding:12px;background:#0d1117;border-radius:8px;font-size:11px;max-width:min(100%,980px);overflow:auto;color:#c9d1d9;border:1px solid #30363d}
+#tel{margin-top:4px;padding:10px;background:#0d1117;border-radius:8px;font-size:11px;max-width:min(100%,980px);width:100%;height:min(22vh,200px);min-height:100px;overflow:auto;color:#c9d1d9;border:1px solid #30363d;border-left:3px solid #58a6ff;font-family:ui-monospace,monospace;white-space:pre-wrap}
+#histLab{font-size:.8rem;margin:4px 0 8px;color:var(--m)}
+.pg-ver{font-size:.72rem;color:#8ab4f8;font-weight:700;margin-left:10px;white-space:nowrap}
+</style>
+</head>
+<body>
+<h1>Triangle board playground <span id="pgVer" class="pg-ver"></span></h1>
+<p class="h"><b>Sandbox</b> &mdash; Board is a <b>triangular lattice mesh</b>: vertices lie on an equilateral triangle grid; <b>six</b> triangles meet at every interior vertex (same as your reference images). Along a horizontal line through the plane, triangle orientation alternates ▲▼▲▼. <b style="color:#fbbf24">Click</b> cells <b style="color:#4ade80">ON (green)</b>. Each <b>Fall 1 tick</b>: each lit cell <b>only</b> looks at <b>mask neighbors</b> (triangles sharing an edge). It picks one <b>empty</b> neighbor whose center lies <b>downhill</b> in container gravity (dot &gt; 0 with <code>grav(rotStep)</code>); ties break by smallest sideways offset from the fall line, then shorter along-gravity step, then key order. If every downhill neighbor is occupied, it stays. Log ⇔ board. Ids: <code>#a→#b</code>. Blue <code>rN</code> = lattice row index <code>j</code>. <b>Crash demo:</b> <code>?crash=1</code> or <code>crash-fall-demo.json</code>.</p>
+<div class="tb">
+<span style="display:inline-flex;align-items:center;gap:6px;margin-right:8px;flex-wrap:wrap"><span style="color:var(--m);font-size:.78rem;white-space:nowrap">Container</span><button type="button" id="containerT" title="Top bar + stem (T)">T</button><button type="button" id="containerV" title="Symmetric linear taper (V)">V</button></span>
+<button type="button" id="a0">All OFF</button>
+<button type="button" id="a1">All ON</button>
+<button type="button" id="iv">Invert</button>
+<button type="button" id="tn">Hide numbers</button>
+<button type="button" id="ft">Fall 1 tick</button>
+<button type="button" id="st">Settle</button>
+<button type="button" id="hb" disabled>&laquo; Back</button>
+<button type="button" id="hf" disabled>Forward &raquo;</button>
+<button type="button" id="ct">Clear log</button>
+<button type="button" id="cptel">Copy telemetry</button>
+<button type="button" id="rcw">Rotate 60 CW</button>
+<button type="button" id="rccw">Rotate 60 CCW</button>
+<button type="button" id="cp">Copy JSON</button>
+<label class="fl">Load<input type="file" id="ld" accept="application/json"/></label>
+</div>
+<p class="h" id="containerShapeLab" style="margin:0 0 4px">Container: (loading…)</p>
+<p class="h" id="rl" style="margin:0 0 4px">Container rotation: 0 deg CW (step 0 of 6)</p>
+<p id="histLab">History: 0 / 0</p>
+<p style="font-size:.78rem;color:var(--m);margin:6px 0 2px;max-width:980px;width:100%">Telemetry (newest on top) — each line is one Fall click / one board update.</p>
+<pre id="tel">(no messages yet)</pre>
+<div class="sw" id="w"></div>
+<pre class="o" id="o" hidden></pre>
+<script>
+(function(){
+var PLAYGROUND_BUILD=20;
+function applyPlaygroundBuildLabel(){var s="build "+PLAYGROUND_BUILD,e=document.getElementById("pgVer"),t=document.querySelector("title"),bb=document.getElementById("boardBuildBanner");if(e)e.textContent=s;if(t)t.textContent="Triangle playground · "+s;if(bb)bb.textContent="BUILD "+PLAYGROUND_BUILD}
+function boardBuildBannerNode(){var b=document.createElement("div");b.id="boardBuildBanner";b.className="board-build-banner";b.textContent="BUILD "+PLAYGROUND_BUILD;return b}
+function cloneLayoutT(){return{side:34,originX:24,originY:24,gridRows:22,gridCols:26,topBar:{minX:120,maxX:780,minY:40,maxY:220},stem:{minX:330,maxX:570,minY:220,maxY:640}}}
+function cloneLayoutV(){var cx=450,y0=40,y1=640,hw=330;return{side:34,originX:120,originY:40,gridRows:22,gridCols:26,topBar:{minX:120,maxX:780,minY:40,maxY:220},stem:{minX:330,maxX:570,minY:220,maxY:640},containerPolygon:[[cx-hw,y0],[cx+hw,y0],[cx,y1]]}}
+var layoutSpec=cloneLayoutT();
+var M=Math.sqrt(3);
+function H(a){return a*M/2}
+function rnd6(x){return Math.round(x*1e6)/1e6}
+function latticeVert(ii,jj,ad,oxd,oyd){var h=H(ad);return{x:rnd6(oxd+ii*ad+jj*ad/2),y:rnd6(oyd+jj*h)}}
+function triVertsFromCell(ii,jj,kind,ad,oxd,oyd){var L=latticeVert,v0=L(ii,jj,ad,oxd,oyd),v10=L(ii+1,jj,ad,oxd,oyd),v01=L(ii,jj+1,ad,oxd,oyd),v11=L(ii+1,jj+1,ad,oxd,oyd);if(kind===0)return[v0,v10,v01];return[v10,v11,v01]}
+function pathDFromVerts(v){return"M "+v[0].x+" "+v[0].y+" L "+v[1].x+" "+v[1].y+" L "+v[2].x+" "+v[2].y+" Z"}
+function addTessEdge(edgeMap,p,q){var s1=p.x+","+p.y,s2=q.x+","+q.y,k=(s1<s2)?s1+"|"+s2:s2+"|"+s1;if(!edgeMap.has(k))edgeMap.set(k,[p,q])}
+function tessGridPathFromCells(arr,ad,oxd,oyd){var edgeMap=new Map(),i,v,tr,d="";for(i=0;i<arr.length;i++){tr=arr[i];v=triVertsFromCell(tr.ti,tr.tj,tr.kind,ad,oxd,oyd);addTessEdge(edgeMap,v[0],v[1]);addTessEdge(edgeMap,v[1],v[2]);addTessEdge(edgeMap,v[2],v[0])}edgeMap.forEach(function(pair){var p0=pair[0],p1=pair[1];d+="M "+p0.x+" "+p0.y+" L "+p1.x+" "+p1.y+" "});return d}
+function edgeKeyVerts(p,q){var s1=p.x+","+p.y,s2=q.x+","+q.y;return(s1<s2)?s1+"|"+s2:s2+"|"+s1}
+function vertsForCellMap(t){return triVertsFromCell(t.ti,t.tj,t.kind,a,layoutSpec.originX,layoutSpec.originY)}
+function inR(x,y,ra,rb){return(x>=ra.minX&&x<=ra.maxX&&y>=ra.minY&&y<=ra.maxY)||(x>=rb.minX&&x<=rb.maxX&&y>=rb.minY&&y<=rb.maxY)}
+function inVShape(cx,cy,v){if(cy<v.minY||cy>v.maxY)return false;var t=(cy-v.minY)/(v.maxY-v.minY),half=v.halfWidthTop*(1-t)+v.halfWidthBottom*t;return Math.abs(cx-v.centerX)<=half}
+function pointInPolygon(x,y,poly){var w=0,n=poly.length,i,a,b,c;for(i=0;i<n;i++){a=poly[i];b=poly[(i+1)%n];c=(b[0]-a[0])*(y-a[1])-(x-a[0])*(b[1]-a[1]);if(a[1]<=y){if(b[1]>y&&c>0)w++}else{if(b[1]<=y&&c<0)w--}}return w!==0}
+/* CONTAINER-POLYGON CONTRACT (do not change without explicit maintainer OK): When layout.containerPolygon is set, the visible mesh must be whole lattice triangles only—each cell is included iff all three of its vertices lie inside the polygon (pointInPolygonInclusive). Do not replace this with centroid-only, any-vertex, or edge-crossing rules; that reintroduces partial triangles and a broken silhouette. Do not “fix” appearance with a separate SVG outline on top. Related: distToSeg, build() polygon branch, cloneLayoutV containerPolygon. */
+function distToSeg(px,py,ax,ay,bx,by){var vx=bx-ax,vy=by-ay,wx=px-ax,wy=py-ay,den=vx*vx+vy*vy||1e-30,c=Math.max(0,Math.min(1,(wx*vx+wy*vy)/den)),qx=ax+c*vx,qy=ay+c*vy;return Math.hypot(px-qx,py-qy)}
+function pointInPolygonInclusive(x,y,poly,eps){var i,d,n=poly.length;if(pointInPolygon(x,y,poly))return true;for(i=0;i<n;i++){d=distToSeg(x,y,poly[i][0],poly[i][1],poly[(i+1)%n][0],poly[(i+1)%n][1]);if(d<=eps)return true}return false}
+function inContainer(l,cx,cy){if(l.containerPolygon&&l.containerPolygon.length>=3)return pointInPolygon(cx,cy,l.containerPolygon);if(l.vShape&&typeof l.vShape.centerX==="number"&&typeof l.vShape.halfWidthTop==="number")return inVShape(cx,cy,l.vShape);return inR(cx,cy,l.topBar,l.stem)}
+function triTouchesContainer(l,v){var cx,cy,n;if(l.containerPolygon&&l.containerPolygon.length>=3){for(n=0;n<3;n++)if(!pointInPolygonInclusive(v[n].x,v[n].y,l.containerPolygon,0.75))return false;return true}cx=(v[0].x+v[1].x+v[2].x)/3;cy=(v[0].y+v[1].y+v[2].y)/3;if(inContainer(l,cx,cy))return true;for(n=0;n<3;n++)if(inContainer(l,v[n].x,v[n].y))return true;return false}
+function build(l){var s=l.side,ox=l.originX,oy=l.originY,gr=l.gridRows,gc=l.gridCols,cells=[],ii,jj,kind,v,cx,cy,h=H(s),jLo=0,jHi=gr,iLo=0,iHi=gc,pad,pjMin,pjMax,k,xMin,xMax,yMin,yMax;
+if(l.containerPolygon&&l.containerPolygon.length>=3){pad=10;xMin=1e30;xMax=-1e30;yMin=1e30;yMax=-1e30;for(k=0;k<l.containerPolygon.length;k++){if(l.containerPolygon[k][0]<xMin)xMin=l.containerPolygon[k][0];if(l.containerPolygon[k][0]>xMax)xMax=l.containerPolygon[k][0];if(l.containerPolygon[k][1]<yMin)yMin=l.containerPolygon[k][1];if(l.containerPolygon[k][1]>yMax)yMax=l.containerPolygon[k][1]}pjMin=Math.floor((yMin-oy)/h)-pad;pjMax=Math.ceil((yMax-oy)/h)+pad;jLo=Math.min(0,pjMin);jHi=Math.max(gr,pjMax);iLo=Math.floor((xMin-ox-jHi*s/2)/s)-pad;iHi=Math.ceil((xMax-ox-jLo*s/2)/s)+pad}
+for(jj=jLo;jj<jHi;jj++)for(ii=iLo;ii<iHi;ii++)for(kind=0;kind<2;kind++){v=triVertsFromCell(ii,jj,kind,s,ox,oy);if(!triTouchesContainer(l,v))continue;cx=(v[0].x+v[1].x+v[2].x)/3;cy=(v[0].y+v[1].y+v[2].y)/3;cells.push({id:cells.length,ti:ii,tj:jj,kind:kind,up:kind===1,cx:cx,cy:cy})}return cells}
+function kKey(t){return t.ti+","+t.tj+","+t.kind}
+function rectFromJSON(r,f){if(!r||typeof r!=="object")return f;return{minX:+r.minX,maxX:+r.maxX,minY:+r.minY,maxY:+r.maxY}}
+function vShapeFromJSON(v){if(!v||typeof v!=="object")return null;if(typeof v.centerX!=="number"||typeof v.minY!=="number"||typeof v.maxY!=="number"||typeof v.halfWidthTop!=="number"||typeof v.halfWidthBottom!=="number")return null;return{centerX:v.centerX,minY:v.minY,maxY:v.maxY,halfWidthTop:v.halfWidthTop,halfWidthBottom:v.halfWidthBottom}}
+function polygonFromJSON(p){if(!p||!Array.isArray(p)||p.length<3)return null;var out=[],i,q;for(i=0;i<p.length;i++){q=p[i];if(!Array.isArray(q)||q.length<2)return null;if(typeof q[0]!=="number"||typeof q[1]!=="number")return null;out.push([+q[0],+q[1]])}return out}
+function layoutFromJSON(obj,fallback){var f=fallback||layoutSpec,tb,st,vs,cp,out;if(!obj||typeof obj!=="object")return null;if(typeof obj.side!=="number"||typeof obj.gridRows!=="number"||typeof obj.gridCols!=="number")return null;tb=rectFromJSON(obj.topBar,f.topBar);st=rectFromJSON(obj.stem,f.stem);vs=vShapeFromJSON(obj.vShape);cp=polygonFromJSON(obj.containerPolygon)||polygonFromJSON(obj["cupPolygon"]);out={side:obj.side,originX:typeof obj.originX==="number"?obj.originX:f.originX,originY:typeof obj.originY==="number"?obj.originY:f.originY,gridRows:obj.gridRows,gridCols:obj.gridCols,topBar:tb,stem:st};if(vs)out.vShape=vs;if(cp)out.containerPolygon=cp;if(obj.fallCrashDemo===true)out.fallCrashDemo=true;return out}
+function rebuildNeigh(){var edgeMap=new Map(),ks=Object.keys(cellMap),i,e,ki,k,a1,b1,lst,x,u,seen;for(i=0;i<ks.length;i++){k=ks[i];lst=vertsForCellMap(cellMap[k]);for(e=0;e<3;e++){a1=lst[e];b1=lst[(e+1)%3];ki=edgeKeyVerts(a1,b1);if(!edgeMap.has(ki))edgeMap.set(ki,[]);edgeMap.get(ki).push(k)}}for(i=0;i<ks.length;i++){k=ks[i];neigh[k]=[];lst=vertsForCellMap(cellMap[k]);for(e=0;e<3;e++){a1=lst[e];b1=lst[(e+1)%3];ki=edgeKeyVerts(a1,b1);u=edgeMap.get(ki)||[];for(x=0;x<u.length;x++)if(u[x]!==k)neigh[k].push(u[x])}seen={};lst=neigh[k];for(x=0;x<lst.length;x++)seen[lst[x]]=1;neigh[k]=Object.keys(seen)}}
+function rebuildWorldFromLayout(nextLayout){var ii;layoutSpec=nextLayout;cells=build(layoutSpec);a=layoutSpec.side;cellMap={};for(ii=0;ii<cells.length;ii++)cellMap[kKey(cells[ii])]=cells[ii];neigh={};rebuildNeigh()}
+var cells,a,cellMap,neigh={};
+rebuildWorldFromLayout(layoutSpec);
+function fallCrashDemoFromUrl(){try{if(typeof location==="undefined"||!location.search)return false;return new URLSearchParams(location.search).get("crash")==="1"}catch(e){return false}}
+function grav(r){var rad=r*Math.PI/3;return{gx:Math.sin(rad),gy:Math.cos(rad)}}
+function neighborFallOnce(onSet){var g=grav(rotStep),eps=1e-6,nx=new Set(onSet),keys=Array.from(nx),i,j,ka,t,nb,nk,o,dx,dy,along,cross,ac,cand,bCross,bAlong,cl=new Set(),moves=[];keys.sort(function(k1,k2){return cellMap[k1].cy-cellMap[k2].cy});for(i=0;i<keys.length;i++){ka=keys[i];if(!nx.has(ka))continue;t=cellMap[ka];nb=neigh[ka]||[];cand=null;bCross=1e30;bAlong=1e30;for(j=0;j<nb.length;j++){nk=nb[j];if(nx.has(nk))continue;o=cellMap[nk];if(!o)continue;dx=o.cx-t.cx;dy=o.cy-t.cy;along=dx*g.gx+dy*g.gy;if(along<=eps)continue;cross=dx*(-g.gy)+dy*g.gx;ac=Math.abs(cross);if(cand===null||ac<bCross-eps||(Math.abs(ac-bCross)<eps&&along<bAlong-eps)||(Math.abs(ac-bCross)<eps&&Math.abs(along-bAlong)<1e-9&&nk<cand)){cand=nk;bCross=ac;bAlong=along}}if(cand!==null&&!cl.has(cand)){nx.delete(ka);nx.add(cand);cl.add(cand);moves.push({f:ka,t:cand})}}return{next:nx,moves:moves}}
+function fallTickSequential(onSet){if(layoutSpec.fallCrashDemo===true||fallCrashDemoFromUrl())throw new Error("Crash demo: Fall entered fallTickSequential (remove ?crash=1 and layout.fallCrashDemo to run fall).");var fr=neighborFallOnce(onSet);return{next:fr.next,moves:fr.moves||[]}}
+function setsEqual(A,B){if(A.size!==B.size)return false;var it=A.values(),x;while(!(x=it.next()).done)if(!B.has(x.value))return false;return true;}
+function sortedKeys(s){return Array.from(s).sort()}
+var on=new Set(),showNums=true,rotStep=0;
+var snapshots=[{keys:[],rot:0,label:"start"}];
+var snapIdx=0;
+var maxTel=80;
+var telLines=[];
+function tel(s){var line=(new Date()).toLocaleTimeString()+"  "+s;telLines.unshift(line);if(telLines.length>maxTel)telLines.length=maxTel;var el=document.getElementById("tel");if(el)el.textContent=telLines.join("\n");}
+function logClick(label){tel("click: "+label);}
+function updHistUi(){var hb=document.getElementById("hb"),hf=document.getElementById("hf"),hl=document.getElementById("histLab");if(hb)hb.disabled=snapIdx<=0;if(hf)hf.disabled=snapIdx>=snapshots.length-1;if(hl)hl.textContent="History: "+snapIdx+" / "+(snapshots.length-1)+"  "+(snapshots[snapIdx].label||"");}
+function pushSnapshot(label){snapshots=snapshots.slice(0,snapIdx+1);snapshots.push({keys:sortedKeys(on),rot:rotStep,label:label||""});snapIdx=snapshots.length-1;updHistUi();}
+function truncateToHere(){if(snapIdx<snapshots.length-1){snapshots=snapshots.slice(0,snapIdx+1);}}
+function applySnapshot(i){if(i<0||i>=snapshots.length)return;snapIdx=i;on=new Set(snapshots[snapIdx].keys);rotStep=snapshots[snapIdx].rot;R();updHistUi();telExpectFall();}
+function telMovePair(fk,tk){var sf=cellMap[fk],st=cellMap[tk],fi=sf!=null?sf.id:"?",ti=st!=null?st.id:"?";return "["+fk+"]->["+tk+"] #"+fi+"->#"+ti;}
+function fallTelemetry(before,after,head,moves){if(setsEqual(before,after)){tel(head+"  (no movement)");return}if(moves&&moves.length){var pairs=moves.map(function(m){return telMovePair(m.f,m.t);});tel(head+"  n="+moves.length+"  "+pairs.join(" "));return}var ex=[],en=[],kb,ka;for(kb of before)if(!after.has(kb))ex.push(kb);for(ka of after)if(!before.has(ka))en.push(ka);var i,n=Math.min(ex.length,en.length),pairs2=[];for(i=0;i<n;i++)pairs2.push(telMovePair(ex[i],en[i]));tel(head+"  n="+ex.length+"  "+pairs2.slice(0,6).join(" ")+(pairs2.length>6?" ...":""));}
+function telExpectFall(){var b,fs,aft;if(on.size===0){tel("expect Fall 1 tick: (no greens — nothing to move)");return}try{b=new Set(on);fs=fallTickSequential(b)}catch(e){tel("expect Fall 1 tick: "+e.message);return}aft=fs.next;if(setsEqual(b,aft)){tel("expect Fall 1 tick: (no movement)");return}if(fs.moves&&fs.moves.length){var pairs=fs.moves.map(function(m){return telMovePair(m.f,m.t);});tel("expect Fall 1 tick: n="+fs.moves.length+"  "+pairs.join(" "));return}fallTelemetry(b,aft,"expect Fall 1 tick",null);}
+function updRot(){var e=document.getElementById("rl");if(e)e.textContent="Container rotation: "+(rotStep*60)+" deg CW (step "+rotStep+" of 6)";}
+function updContainerShapeLab(){var e=document.getElementById("containerShapeLab"),poly=layoutSpec.containerPolygon,desc;if(!e)return;if(poly&&poly.length===3)desc="V — triangle profile (apex at bottom)";else if(layoutSpec.vShape&&typeof layoutSpec.vShape.centerX==="number")desc="V (symmetric taper, JSON)";else if(poly&&poly.length>=3)desc="T + custom polygon (loaded)";else desc="T — top bar + rectangular stem (flat bottom)";e.textContent="Container: "+desc+"  ·  Build "+PLAYGROUND_BUILD;}
+function applyContainerPreset(which){logClick("Container "+which);truncateToHere();var next=which==="V"?cloneLayoutV():cloneLayoutT();rebuildWorldFromLayout(next);on=new Set();snapshots=[{keys:[],rot:rotStep,label:"container "+which}];snapIdx=0;tel("Container: "+(which==="V"?"V triangle to apex":"T two rectangles, flat stem bottom"));updContainerShapeLab();R();telExpectFall();}
+function R(){var i,j,rn,svg,rotg,g,k,path,txt,tr,rcX,rcY,n,dx,dy,d,Rm,Rcell,byR,rk,minx,sumy,avgy;
+n=cells.length;rcX=0;rcY=0;for(i=0;i<n;i++){tr=cells[i];rcX+=tr.cx;rcY+=tr.cy;}
+if(!n){var wN=document.getElementById("w");wN.innerHTML="";wN.appendChild(boardBuildBannerNode());updRot();updContainerShapeLab();return}rcX/=n;rcY/=n;Rcell=a/Math.sqrt(3);Rm=0;for(i=0;i<n;i++){tr=cells[i];dx=tr.cx-rcX;dy=tr.cy-rcY;d=Math.sqrt(dx*dx+dy*dy)+Rcell;if(d>Rm)Rm=d}Rm+=Math.max(8,a*0.22);
+svg=document.createElementNS("http://www.w3.org/2000/svg","svg");svg.setAttribute("width",String(2*Rm));svg.setAttribute("height",String(2*Rm));
+svg.setAttribute("viewBox",(rcX-Rm)+" "+(rcY-Rm)+" "+(2*Rm)+" "+(2*Rm));
+if(!showNums)svg.setAttribute("class","hide-nums");else svg.removeAttribute("class");
+rotg=svg.appendChild(document.createElementNS("http://www.w3.org/2000/svg","g"));
+rotg.setAttribute("transform","rotate("+(rotStep*60)+","+rcX+","+rcY+")");
+g=rotg.appendChild(document.createElementNS("http://www.w3.org/2000/svg","g"));
+var dOff="",dOn="",oxL=layoutSpec.originX,oyL=layoutSpec.originY,v0,sub;
+for(i=0;i<cells.length;i++){tr=cells[i];k=kKey(tr);v0=triVertsFromCell(tr.ti,tr.tj,tr.kind,a,oxL,oyL);sub=pathDFromVerts(v0);if(on.has(k))dOn+=sub;else dOff+=sub}
+if(dOff.length){path=g.appendChild(document.createElementNS("http://www.w3.org/2000/svg","path"));path.setAttribute("class","meshOff");path.setAttribute("d",dOff);path.setAttribute("pointer-events","none")}
+if(dOn.length){path=g.appendChild(document.createElementNS("http://www.w3.org/2000/svg","path"));path.setAttribute("class","meshOn");path.setAttribute("d",dOn);path.setAttribute("pointer-events","none")}
+path=g.appendChild(document.createElementNS("http://www.w3.org/2000/svg","path"));
+path.setAttribute("class","tessGrid");
+path.setAttribute("d",tessGridPathFromCells(cells,a,oxL,oyL));
+for(i=0;i<cells.length;i++){tr=cells[i];k=kKey(tr);path=g.appendChild(document.createElementNS("http://www.w3.org/2000/svg","path"));
+path.setAttribute("d",pathDFromVerts(triVertsFromCell(tr.ti,tr.tj,tr.kind,a,oxL,oyL)));path.setAttribute("class","hit");
+(function(kk){path.addEventListener("click",function(){var tt=cellMap[kk];logClick("cell "+(tt!=null?tt.id:"?")+" ("+(on.has(kk)?"OFF":"ON")+")");truncateToHere();if(on.has(kk))on.delete(kk);else on.add(kk);pushSnapshot("toggle");R();telExpectFall();});})(k);
+txt=g.appendChild(document.createElementNS("http://www.w3.org/2000/svg","text"));txt.setAttribute("x",String(tr.cx));txt.setAttribute("y",String(tr.cy));txt.setAttribute("class","L"+(on.has(k)?"":" numMuted"));txt.textContent=String(tr.id);}
+byR={};for(i=0;i<cells.length;i++){tr=cells[i];if(!byR[tr.tj])byR[tr.tj]=[];byR[tr.tj].push(tr);}rk=Object.keys(byR).map(Number).sort(function(a,b){return a-b});
+for(j=0;j<rk.length;j++){rn=rk[j];tr=byR[rn];minx=tr[0].cx;sumy=0;for(i=0;i<tr.length;i++){if(tr[i].cx<minx)minx=tr[i].cx;sumy+=tr[i].cy;}avgy=sumy/tr.length;txt=g.appendChild(document.createElementNS("http://www.w3.org/2000/svg","text"));txt.setAttribute("x",String(minx-a*0.55));txt.setAttribute("y",String(avgy));txt.setAttribute("class","rowR");txt.textContent="r"+rn;}
+var wEl=document.getElementById("w");wEl.innerHTML="";wEl.appendChild(boardBuildBannerNode());wEl.appendChild(svg);updRot();updContainerShapeLab();updHistUi();}
+function atLatest(){return snapIdx===snapshots.length-1;}
+document.getElementById("containerT").onclick=function(){applyContainerPreset("T")};
+document.getElementById("containerV").onclick=function(){applyContainerPreset("V")};
+document.getElementById("a0").onclick=function(){logClick("All OFF");truncateToHere();on=new Set();pushSnapshot("all OFF");R();telExpectFall();};
+document.getElementById("a1").onclick=function(){logClick("All ON");truncateToHere();on=new Set(cells.map(kKey));pushSnapshot("all ON");R();telExpectFall();};
+document.getElementById("iv").onclick=function(){logClick("Invert");truncateToHere();var n2=new Set(),i,t,kk;for(i=0;i<cells.length;i++){t=cells[i];kk=kKey(t);if(!on.has(kk))n2.add(kk)}on=n2;pushSnapshot("invert");R();telExpectFall();};
+document.getElementById("tn").onclick=function(){logClick(showNums?"Hide numbers":"Show numbers");showNums=!showNums;document.getElementById("tn").textContent=showNums?"Hide numbers":"Show numbers";R();};
+document.getElementById("ft").onclick=function(){logClick("Fall 1 tick");if(!atLatest()){tel("(Forward to end before new fall)");return}if(on.size===0){tel("Fall: click some triangles ON (green) first — Fall only moves pieces.");return}var b=new Set(on),fs=fallTickSequential(on),aft=fs.next;if(setsEqual(b,aft)){tel("fall 1 tick: no movement (nothing to do — try Rotate container or different layout)");R();telExpectFall();return}on=aft;pushSnapshot("fall tick");fallTelemetry(b,aft,"fall tick",fs.moves);R();telExpectFall();};
+document.getElementById("st").onclick=function(){logClick("Settle");if(!atLatest()){tel("(Forward to end before settle)");return}if(on.size===0){tel("Settle: need at least one green piece first.");return}var guard=0,b,aft,tick=0;while(guard<500){guard++;b=new Set(on);var sr=fallTickSequential(on);aft=sr.next;if(setsEqual(b,aft))break;on=aft;tick++;pushSnapshot("settle "+tick);fallTelemetry(b,aft,"settle",sr.moves);}tel("settle: "+tick+" inner step(s), done");R();telExpectFall();};
+document.getElementById("hb").onclick=function(){logClick("Back «");if(snapIdx>0)applySnapshot(snapIdx-1);};
+document.getElementById("hf").onclick=function(){logClick("Forward »");if(snapIdx<snapshots.length-1)applySnapshot(snapIdx+1);};
+document.getElementById("ct").onclick=function(){telLines=[];document.getElementById("tel").textContent="(log cleared)";logClick("Clear log");};
+document.getElementById("cptel").onclick=function(){logClick("Copy telemetry");var el=document.getElementById("tel"),txt=el?String(el.textContent||""):"";if(!navigator.clipboard||!navigator.clipboard.writeText){tel("clipboard not available");return;}navigator.clipboard.writeText(txt).then(function(){tel("telemetry copied ("+txt.split(/\n/).length+" lines)");}).catch(function(){tel("clipboard failed — permission?");});};
+document.getElementById("rcw").onclick=function(){logClick("Rotate 60 CW");truncateToHere();rotStep=(rotStep+1)%6;pushSnapshot("container CW");tel("container rotated -> step "+rotStep);R();telExpectFall();};
+document.getElementById("rccw").onclick=function(){logClick("Rotate 60 CCW");truncateToHere();rotStep=(rotStep+5)%6;pushSnapshot("container CCW");tel("container rotated -> step "+rotStep);R();telExpectFall();};
+document.getElementById("cp").onclick=function(){logClick("Copy JSON");var onIds=cells.filter(function(t){return on.has(kKey(t));}).map(function(t){return t.id}).sort(function(a,b){return a-b});
+var lay={side:layoutSpec.side,originX:layoutSpec.originX,originY:layoutSpec.originY,gridRows:layoutSpec.gridRows,gridCols:layoutSpec.gridCols,topBar:{minX:layoutSpec.topBar.minX,maxX:layoutSpec.topBar.maxX,minY:layoutSpec.topBar.minY,maxY:layoutSpec.topBar.maxY},stem:{minX:layoutSpec.stem.minX,maxX:layoutSpec.stem.maxX,minY:layoutSpec.stem.minY,maxY:layoutSpec.stem.maxY}};if(layoutSpec.vShape)lay.vShape={centerX:layoutSpec.vShape.centerX,minY:layoutSpec.vShape.minY,maxY:layoutSpec.vShape.maxY,halfWidthTop:layoutSpec.vShape.halfWidthTop,halfWidthBottom:layoutSpec.vShape.halfWidthBottom};if(layoutSpec.containerPolygon&&layoutSpec.containerPolygon.length)lay.containerPolygon=layoutSpec.containerPolygon.map(function(pt){return[pt[0],pt[1]]});if(layoutSpec.fallCrashDemo===true)lay.fallCrashDemo=true;
+var j=JSON.stringify({schemaVersion:1,layout:lay,rotationSteps:rotStep,keys:sortedKeys(on),onIds:onIds,historyIndex:snapIdx,meta:{count:cells.length,ticks:snapshots.length-1,playgroundBuild:PLAYGROUND_BUILD}},null,2);
+document.getElementById("o").hidden=false;document.getElementById("o").textContent=j;tel("JSON in panel below; clipboard attempted");if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(j).catch(function(){});};
+document.getElementById("ld").onchange=function(e){var f=e.target.files&&e.target.files[0],r;if(!f)return;logClick("Load "+f.name);r=new FileReader();r.onload=function(){try{var o=JSON.parse(String(r.result)),idSet,nl,i,onNew,kk;
+nl=layoutFromJSON(o.layout,layoutSpec);if(nl)rebuildWorldFromLayout(nl);
+if(typeof o.rotationSteps==="number")rotStep=((Math.round(o.rotationSteps)%6)+6)%6;
+onNew=new Set();
+if(o.keys&&Array.isArray(o.keys)){for(i=0;i<o.keys.length;i++){kk=o.keys[i];if(typeof kk==="string"&&cellMap[kk])onNew.add(kk)}}
+else if(o.onIds&&Array.isArray(o.onIds)){idSet=new Set(o.onIds);for(i=0;i<cells.length;i++){if(idSet.has(cells[i].id))onNew.add(kKey(cells[i]))}}
+on=onNew;
+snapshots=[{keys:sortedKeys(on),rot:rotStep,label:"loaded"}];snapIdx=0;telLines=[];tel("loaded JSON OK");updContainerShapeLab();R();telExpectFall();}catch(err){alert("Could not load: "+err);}};r.readAsText(f);e.target.value="";};
+applyPlaygroundBuildLabel();
+R();updContainerShapeLab();tel("Ready — Build "+PLAYGROUND_BUILD+" (also on Container line above). Ctrl+F5 if stale.");telExpectFall();
+})();
+</script>
+</body>
+</html>

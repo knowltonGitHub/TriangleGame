@@ -18,3 +18,6 @@
 # VS Code / Cursor tasks (open playground, etc.)
 !/.vscode/
 !/.vscode/**
+
+# Allow commit/push helper script
+!/Commit-AndPush.ps1

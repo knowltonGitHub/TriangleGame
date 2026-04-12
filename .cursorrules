@@ -1,5 +1,7 @@
-Isolation: You are strictly forbidden from reading or modifying any file not explicitly "unblocked" in .cursorignore.
+Isolation: Do not read or modify files outside paths unblocked by .cursorignore, EXCEPT that running `Commit-AndPush.ps1` is explicitly allowed when the user requests commit/push operations.
 
-Proof of Work: For every task, you must provide a terminal-based verification (e.g., grep or ls) proving you did not access restricted directories like /Platforms/ or /Resources/.
+Proof of Work: For every task, provide terminal-based verification (e.g., ls or rg) showing restricted directories like /Platforms/ or /Resources/ were not accessed.
 
-No Assumptions: Do not implement "standard" MAUI patterns (like MVVM or DI) unless they are explicitly requested and siloed.
+No Assumptions: Do not implement standard MAUI patterns (MVVM, DI, etc.) unless explicitly requested and siloed.
+
+Git Commit/Push Rule: When the user asks to commit, push, or "commit and push", always use `Commit-AndPush.ps1` instead of direct `git add`, `git commit`, or `git push` commands.

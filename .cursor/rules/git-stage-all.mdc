@@ -1,0 +1,10 @@
+﻿---
+description: Normal commits via Commit-AndPush.ps1 with a clear message; script already uses git add -A.
+alwaysApply: true
+---
+
+# Commits (this repo)
+
+**Normal path:** The user will usually ask you to run **`Commit-AndPush.ps1`** from the repo root with an **appropriate `-CommitMessage`** (summary of what changed and why). That script already runs **`git add -A`** before commit—no need to stage manually unless they say otherwise.
+
+Manual `git add` / partial staging is **rare** here (solo project). If they explicitly ask for scoped staging or a different workflow, follow that.

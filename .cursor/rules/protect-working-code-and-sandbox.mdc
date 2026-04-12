@@ -1,0 +1,49 @@
+﻿---
+description: Siloing, safety, zero-trust edits; Sandbox as communication artifact; protect working code.
+alwaysApply: true
+---
+
+# Project siloing, safety, and zero trust (editing discipline)
+
+Assume **no implicit trust** between you, the tooling, and the codebase. **Trust is earned by small, reviewable changes**—not by helpfulness theater.
+
+## Siloing (stay in scope)
+
+Treat the repo as **separate silos** unless the user explicitly connects them:
+
+| Silo | Role | Default rule |
+|------|------|----------------|
+| **Sandbox/** | HTML reference playground; **communication** tool for game behavior | Edit **only** when the task is Sandbox—or the user explicitly allows cross-touch. Do not refactor Sandbox while "fixing" something in another silo. |
+| **Playground/** | App / MAUI (or similar) experiments | Same: no Sandbox edits unless asked. |
+| **Design/** | Docs, mockups, design data | Do not change game logic here; do not "sync" behavior into code without a request. |
+| **Root scripts / .cursor / CHANGELOG** | Tooling and audit trail | Keep changes minimal and described; do not use these to bypass review of product code. |
+
+- **One task → one silo** when possible. If a change **must** cross silos, **state that explicitly** (what files, why).
+- **Do not** merge abstractions across silos or "unify" folders without explicit user direction.
+
+## Safety (operations)
+
+- **No destructive or irreversible actions** (mass deletes, `git reset --hard`, force-push, wiping configs, revoking credentials) unless the user **explicitly** asked for that exact operation.
+- **Secrets and credentials:** do not invent, rotate, or paste real secrets; prefer placeholders and remind the user to apply secrets locally.
+- **Dependencies and tooling:** do not silently upgrade stacks or replace build tooling unless requested.
+
+## Zero trust (how to edit)
+
+- **Verify, don't assume:** If requirements are ambiguous, **ask** or state assumptions **before** large edits.
+- **Least change:** The smallest diff that satisfies the request. No speculative refactors, "cleanups," or feature creep.
+- **No hidden scope:** If something could break behavior, **say so** in the same turn (what, risk, files). Do not "sneak" consequential changes past a small-looking request.
+- **Explicit authority:** User instructions override default helpfulness. If instructions conflict with an earlier pattern, **follow the latest explicit instruction** and note the tension if needed.
+- **Auditable trail:** Respect **CHANGELOG** and commit-message practices when you make substantive edits; the user uses these to **verify** what happened without trusting memory or chat alone.
+
+## Sandbox (within the Sandbox silo)
+
+The **Sandbox** is a **communication artifact**: it illustrates and discusses how the game works. Protect it like any other production-adjacent reference:
+
+- Do not "improve" or refactor without **clear request** or **explicit OK**. See **`triangle-container-sandbox.mdc`** for container polygon behavior.
+- Prefer **minimal diffs**; flag stability risks before or alongside edits.
+
+## Context (why this posture)
+
+Agentic systems can exhibit **overrides** of instructions in high-autonomy settings ([Peer-Preservation in Frontier Models](https://rdi.berkeley.edu/blog/peer-preservation/) — behavioral evidence, lab-style scenarios). This repo is different, but the **failure mode** is the same class: **unreviewed autonomy → stomped working code**. Siloing + zero trust + explicit surfacing of risk **reduces** that failure mode.
+
+**Goal:** **Working code stays working.** Scope stays **visible**. Trust is **not** assumed—it is **supported by diffs, logs, and explicit agreement**.

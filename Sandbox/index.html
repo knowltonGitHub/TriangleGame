@@ -63,11 +63,13 @@ pre.o{margin-top:8px;padding:12px;background:#0d1117;border-radius:8px;font-size
 <p id="histLab">History: 0 / 0</p>
 <p style="font-size:.78rem;color:var(--m);margin:6px 0 2px;max-width:980px;width:100%">Telemetry (newest on top) — each line is one Fall click / one board update.</p>
 <pre id="tel">(no messages yet)</pre>
+<p style="font-size:.78rem;color:var(--m);margin:8px 0 2px;max-width:980px;width:100%">Preview IDs (raw)</p>
+<pre id="ppIds"></pre>
 <div class="sw" id="w"></div>
 <pre class="o" id="o" hidden></pre>
 <script>
 (function(){
-var PLAYGROUND_BUILD=34;
+var PLAYGROUND_BUILD=51;
 function applyPlaygroundBuildLabel(){var s="build "+PLAYGROUND_BUILD,e=document.getElementById("pgVer"),t=document.querySelector("title"),bb=document.getElementById("boardBuildBanner");if(e)e.textContent=s;if(t)t.textContent="Triangle playground · "+s;if(bb)bb.textContent="BUILD "+PLAYGROUND_BUILD}
 function boardBuildBannerNode(){var b=document.createElement("div");b.id="boardBuildBanner";b.className="board-build-banner";b.textContent="BUILD "+PLAYGROUND_BUILD;return b}
 function cloneLayoutT(){return{side:34,originX:24,originY:24,gridRows:22,gridCols:26,topBar:{minX:120,maxX:780,minY:40,maxY:220},stem:{minX:330,maxX:570,minY:220,maxY:640}}}
@@ -103,9 +105,11 @@ function layoutFromJSON(obj,fallback){var f=fallback||layoutSpec,tb,st,vs,cp,out
 function layoutFromCellMaskFile(obj){var m,keys;if(!obj||typeof obj!=="object")return null;if(obj.kind!=="containerCellMask"||!obj.mesh)return null;m=obj.mesh;if(typeof m.side!=="number"||typeof m.gridRows!=="number"||typeof m.gridCols!=="number")return null;keys=Array.isArray(obj.keys)?obj.keys:[];return{side:m.side,originX:typeof m.originX==="number"?m.originX:24,originY:typeof m.originY==="number"?m.originY:24,gridRows:m.gridRows,gridCols:m.gridCols,cellMaskKeys:keys,topBar:{minX:-1e9,maxX:1e9,minY:-1e9,maxY:1e9},stem:{minX:-1e9,maxX:1e9,minY:-1e9,maxY:1e9}}}
 function rebuildNeigh(){var edgeMap=new Map(),ks=Object.keys(cellMap),i,e,ki,k,a1,b1,lst,x,u,seen;for(i=0;i<ks.length;i++){k=ks[i];lst=vertsForCellMap(cellMap[k]);for(e=0;e<3;e++){a1=lst[e];b1=lst[(e+1)%3];ki=edgeKeyVerts(a1,b1);if(!edgeMap.has(ki))edgeMap.set(ki,[]);edgeMap.get(ki).push(k)}}for(i=0;i<ks.length;i++){k=ks[i];neigh[k]=[];lst=vertsForCellMap(cellMap[k]);for(e=0;e<3;e++){a1=lst[e];b1=lst[(e+1)%3];ki=edgeKeyVerts(a1,b1);u=edgeMap.get(ki)||[];for(x=0;x<u.length;x++)if(u[x]!==k)neigh[k].push(u[x])}seen={};lst=neigh[k];for(x=0;x<lst.length;x++)seen[lst[x]]=1;neigh[k]=Object.keys(seen)}}
 function rebuildCellBoundary(){var edgeMap=new Map(),ks=Object.keys(cellMap),i,e,ki,k,a1,b1,lst,u;for(i=0;i<ks.length;i++){k=ks[i];lst=vertsForCellMap(cellMap[k]);for(e=0;e<3;e++){a1=lst[e];b1=lst[(e+1)%3];ki=edgeKeyVerts(a1,b1);if(!edgeMap.has(ki))edgeMap.set(ki,[]);edgeMap.get(ki).push(k)}}cellBoundary={};for(i=0;i<ks.length;i++){k=ks[i];lst=vertsForCellMap(cellMap[k]);for(e=0;e<3;e++){a1=lst[e];b1=lst[(e+1)%3];ki=edgeKeyVerts(a1,b1);u=edgeMap.get(ki)||[];if(u.length===1){cellBoundary[k]=1;break}}}}
-function rebuildWorldFromLayout(nextLayout){var ii;layoutSpec=nextLayout;cells=build(layoutSpec);a=layoutSpec.side;cellMap={};for(ii=0;ii<cells.length;ii++)cellMap[kKey(cells[ii])]=cells[ii];neigh={};rebuildNeigh();rebuildCellBoundary()}
-var cells,a,cellMap,neigh={},cellBoundary={};
+function rebuildVertexNeigh(){var ks=Object.keys(cellMap),i,j,k,vk,lst,verts,vertMap=new Map(),out={},seen;for(i=0;i<ks.length;i++){k=ks[i];verts=vertsForCellMap(cellMap[k]);for(j=0;j<3;j++){vk=verts[j].x+","+verts[j].y;if(!vertMap.has(vk))vertMap.set(vk,[]);vertMap.get(vk).push(k)}}for(i=0;i<ks.length;i++){k=ks[i];verts=vertsForCellMap(cellMap[k]);seen={};for(j=0;j<3;j++){vk=verts[j].x+","+verts[j].y;lst=vertMap.get(vk)||[];lst.forEach(function(kk){if(kk!==k)seen[kk]=1;});}out[k]=Object.keys(seen);}vertexNeigh=out;}
+function rebuildWorldFromLayout(nextLayout){var ii;layoutSpec=nextLayout;cells=build(layoutSpec);a=layoutSpec.side;cellMap={};for(ii=0;ii<cells.length;ii++)cellMap[kKey(cells[ii])]=cells[ii];neigh={};rebuildNeigh();rebuildCellBoundary();rebuildVertexNeigh()}
+var cells,a,cellMap,neigh={},cellBoundary={},vertexNeigh={};
 rebuildWorldFromLayout(layoutSpec);
+var HEADLESS_SIM=typeof globalThis!=="undefined"&&globalThis.__TG_HEADLESS_SIM__===true;
 function fallCrashDemoFromUrl(){try{if(typeof location==="undefined"||!location.search)return false;return new URLSearchParams(location.search).get("crash")==="1"}catch(e){return false}}
 function grav(r){var rad=r*Math.PI/3;return{gx:Math.sin(rad),gy:Math.cos(rad)}}
 function wallEpsForContainerPivot(){return Math.max(5.5,a*0.17)}
@@ -141,6 +145,73 @@ p1b=vb[e2];p2b=vb[(e2+1)%3];
 if(vertsNearlySame(p1a,p1b,tol)&&vertsNearlySame(p2a,p2b,tol))return[p1a,p2a];
 if(vertsNearlySame(p1a,p2b,tol)&&vertsNearlySame(p2a,p1b,tol))return[p1a,p2a];
 }}
+return null;
+}
+function contactWallVerticesForCellKey(ka){
+var poly=layoutSpec.containerPolygon,we=wallEpsForContainerPivot(),v,i,out=[];
+if(!poly||poly.length<3||!cellMap[ka])return out;
+v=vertsForCellMap(cellMap[ka]);
+for(i=0;i<3;i++)if(vertexTouchesContainerWallPx(v[i].x,v[i].y,poly,we))out.push(v[i]);
+return out;
+}
+function sharedVerticesBetweenCells(ka,nk){
+var va=vertsForCellMap(cellMap[ka]),vb=vertsForCellMap(cellMap[nk]),i,j,tol=Math.max(1e-5,a*1e-7),out=[];
+for(i=0;i<3;i++)for(j=0;j<3;j++)if(vertsNearlySame(va[i],vb[j],tol)){out.push(va[i]);break;}
+return out;
+}
+function sharesAnyContactVertex(ka,nk,contacts){
+var sv=sharedVerticesBetweenCells(ka,nk),i,j,tol=Math.max(1e-5,a*1e-7);
+if(!sv.length||!contacts||!contacts.length)return false;
+for(i=0;i<sv.length;i++)for(j=0;j<contacts.length;j++)if(vertsNearlySame(sv[i],contacts[j],tol))return true;
+return false;
+}
+function fsmWallModeMove(ka,nx,g,rightHat,eps){
+var t=cellMap[ka],nb,j,nk,o,dx,dy,along,cross,ac,cand=null,bCross=1e30,bAlong=1e30,vnb,score,bScore=-1e30,bAlong2=-1e30,bLat=0,rd,nearWall,sideSign,centerX;
+if(!t||t.tj<8)return null;
+centerX=containerCenterX();
+sideSign=t.cx>=centerX?1:-1;
+nb=neigh[ka]||[];
+for(j=0;j<nb.length;j++){
+nk=nb[j];if(nx.has(nk))continue;o=cellMap[nk];if(!o||o.kind!==t.kind)continue;
+dx=o.cx-t.cx;dy=o.cy-t.cy;along=dx*g.gx+dy*g.gy;if(along<=eps)continue;
+cross=dx*(-g.gy)+dy*g.gx;ac=Math.abs(cross);
+if(cand===null||ac<bCross-eps||(Math.abs(ac-bCross)<1e-9&&along<bAlong-eps)||(Math.abs(ac-bCross)<1e-9&&Math.abs(along-bAlong)<1e-9&&nk<cand)){cand=nk;bCross=ac;bAlong=along;}
+}
+if(cand!==null)return{to:cand,phase:"slideLocal"};
+vnb=vertexNeigh[ka]||[];cand=null;
+for(j=0;j<vnb.length;j++){
+nk=vnb[j];if(nx.has(nk))continue;o=cellMap[nk];if(!o||o.kind===t.kind)continue;
+dx=o.cx-t.cx;dy=o.cy-t.cy;along=dx*g.gx+dy*g.gy;if(along<-(a*0.15))continue;
+rd=dx*rightHat.gx+dy*rightHat.gy;
+score=(triangleHasVertexNearContainerWall(o)?10000:0)+(cellBoundary[nk]?2000:0)+(along*10)+(sideSign*rd*2);
+if(cand===null||score>bScore+eps||(Math.abs(score-bScore)<1e-9&&(along>bAlong2+eps||(Math.abs(along-bAlong2)<1e-9&&((sideSign<0&&rd<bLat-eps)||(sideSign>0&&rd>bLat+eps)||(Math.abs(rd-bLat)<1e-9&&nk<cand)))))){cand=nk;bScore=score;bAlong2=along;bLat=rd;}
+}
+if(cand!==null)return{to:cand,phase:"pivotRotate"};
+return null;
+}
+function tryBoundaryForcedLocalDecision(ka,nx,g,rightHat,eps){
+var t=cellMap[ka],contacts,nb,j,nk,o,dx,dy,along,cross,ac,bCross=1e30,bAlong=1e30,slideCand=null,pivotCand=null,pivotScore=-1e30,pivotAlong=-1e30,pivotTol=-1e30,rd,allowAnyShared,score;
+if(!layoutSpec.containerPolygon||layoutSpec.containerPolygon.length<3||!t||t.tj<8)return null;
+contacts=contactWallVerticesForCellKey(ka);
+allowAnyShared=true;
+nb=neigh[ka]||[];
+for(j=0;j<nb.length;j++){
+nk=nb[j];if(nx.has(nk))continue;o=cellMap[nk];if(!o)continue;
+dx=o.cx-t.cx;dy=o.cy-t.cy;along=dx*g.gx+dy*g.gy;
+if(o.kind===t.kind){
+if(along<=eps)continue;
+cross=dx*(-g.gy)+dy*g.gx;ac=Math.abs(cross);
+if(slideCand===null||ac<bCross-eps||(Math.abs(ac-bCross)<1e-9&&along<bAlong-eps)||(Math.abs(ac-bCross)<1e-9&&Math.abs(along-bAlong)<1e-9&&nk<slideCand)){slideCand=nk;bCross=ac;bAlong=along;}
+continue;
+}
+if(along<=pivotTol)continue;
+if(!allowAnyShared&&!sharesAnyContactVertex(ka,nk,contacts))continue;
+rd=dx*rightHat.gx+dy*rightHat.gy;
+score=(cellBoundary[nk]?1000:0)+(along*10)+(rd*0.1);
+if(pivotCand===null||score>pivotScore+eps||(Math.abs(score-pivotScore)<1e-9&&(along>pivotAlong+eps||(Math.abs(along-pivotAlong)<1e-9&&nk<pivotCand)))){pivotCand=nk;pivotScore=score;pivotAlong=along;}
+}
+if(slideCand!==null)return{to:slideCand,phase:"slideLocal"};
+if(pivotCand!==null)return{to:pivotCand,phase:"pivotRotate"};
 return null;
 }
 function sharedEdgeWallAttachScore(ka,nk){
@@ -179,35 +250,37 @@ sum+=len;
 }
 return sum;
 }
+function containerCenterX(){
+var poly=layoutSpec.containerPolygon,i,sum;
+if(poly&&poly.length){sum=0;for(i=0;i<poly.length;i++)sum+=poly[i][0];return sum/poly.length;}
+if(layoutSpec.vShape&&typeof layoutSpec.vShape.centerX==="number")return layoutSpec.vShape.centerX;
+return (layoutSpec.topBar.minX+layoutSpec.topBar.maxX)/2;
+}
+function cellMinDistToContainerWall(ka){
+var poly=layoutSpec.containerPolygon,v,i,j,d,minD=1e30;
+if(!poly||poly.length<3||!cellMap[ka])return 1e30;
+v=vertsForCellMap(cellMap[ka]);
+for(i=0;i<3;i++)for(j=0;j<poly.length;j++){d=distToSeg(v[i].x,v[i].y,poly[j][0],poly[j][1],poly[(j+1)%poly.length][0],poly[(j+1)%poly.length][1]);if(d<minD)minD=d;}
+return minD;
+}
 function neighborFallOnce(onSet){
-var g=grav(rotStep),eps=1e-6,nx=new Set(onSet),keys=Array.from(nx),i,j,ka,t,nb,nk,o,dx,dy,along,cross,ac,cand,bCross,bAlong,cl=new Set(),moves=[],ci,rightHat,bLat,rd,bestAttach,sc,curLay,lay,bestLay,bestLen,len;
+var g=grav(rotStep),eps=1e-6,nx=new Set(onSet),keys=Array.from(nx),i,j,ka,t,nb,nk,o,dx,dy,along,cross,ac,cand,bCross,bAlong,cl=new Set(),moves=[],ci,rightHat,bLat,rd,wallMode,score,bScore,forced,nextForced,nxTmp;
 rightHat={gx:g.gy,gy:-g.gx};
 keys.sort(function(k1,k2){return cellMap[k1].cy-cellMap[k2].cy});
 for(i=0;i<keys.length;i++){
 ka=keys[i];if(!nx.has(ka))continue;t=cellMap[ka];
-if(triangleEligibleForWallPivot(t,ka)){
-nb=neigh[ka]||[];cand=null;bestAttach=-1;bLat=1e30;
-for(j=0;j<nb.length;j++){
-nk=nb[j];if(nx.has(nk))continue;o=cellMap[nk];if(!o||o.kind===t.kind)continue;
-dx=o.cx-t.cx;dy=o.cy-t.cy;along=dx*g.gx+dy*g.gy;if(along<=eps)continue;
-sc=sharedEdgeWallAttachScore(ka,nk);if(sc<=0)continue;
-rd=dx*rightHat.gx+dy*rightHat.gy;
-if(cand===null||sc>bestAttach+eps||(Math.abs(sc-bestAttach)<1e-9&&(rd<bLat-eps||(Math.abs(rd-bLat)<1e-9&&nk<cand)))){cand=nk;bestAttach=sc;bLat=rd;}
+wallMode=layoutSpec.containerPolygon&&layoutSpec.containerPolygon.length>=3&&(triangleHasVertexNearContainerWall(t)||cellBoundary[ka]||cellMinDistToContainerWall(ka)<=a*0.8)&&t.tj>=8;
+if(wallMode){
+forced=fsmWallModeMove(ka,nx,g,rightHat,eps);
+if(forced&&forced.to!==null&&!cl.has(forced.to)){
+if(forced.phase==="pivotRotate"&&cellMap[forced.to]&&cellMap[forced.to].tj===t.tj){
+nxTmp=new Set(nx);nxTmp.delete(ka);nxTmp.add(forced.to);
+nextForced=fsmWallModeMove(forced.to,nxTmp,g,rightHat,eps);
+if(nextForced&&nextForced.to!==null&&nextForced.to!==ka&&!nx.has(nextForced.to)&&!cl.has(nextForced.to)){
+nx.delete(ka);nx.add(nextForced.to);cl.add(nextForced.to);moves.push({f:ka,t:nextForced.to,phase:"wallSlideComposite"});continue;
 }
-if(cand!==null&&!cl.has(cand)){nx.delete(ka);nx.add(cand);cl.add(cand);moves.push({f:ka,t:cand,phase:"pivot"});continue;}
 }
-if(layoutSpec.containerPolygon&&layoutSpec.containerPolygon.length>=3&&cellBoundary[ka]){
-curLay=edgeOnContainerWallSupportScore(ka);
-if(curLay<2){
-nb=neigh[ka]||[];cand=null;bestLay=-1;bestLen=-1;bLat=1e30;
-for(j=0;j<nb.length;j++){
-nk=nb[j];if(nx.has(nk))continue;o=cellMap[nk];if(!o||o.kind===t.kind)continue;
-dx=o.cx-t.cx;dy=o.cy-t.cy;along=dx*g.gx+dy*g.gy;if(along<=eps)continue;
-lay=edgeOnContainerWallSupportScore(nk);if(lay<=curLay)continue;
-rd=dx*rightHat.gx+dy*rightHat.gy;len=edgeOnWallLengthSum(nk);
-if(cand===null||lay>bestLay+eps||(Math.abs(lay-bestLay)<1e-9&&(len>bestLen+eps||(Math.abs(len-bestLen)<1e-9&&(rd<bLat-eps||(Math.abs(rd-bLat)<1e-9&&nk<cand)))))){cand=nk;bestLay=lay;bestLen=len;bLat=rd;}
-}
-if(cand!==null&&!cl.has(cand)){nx.delete(ka);nx.add(cand);cl.add(cand);moves.push({f:ka,t:cand,phase:"layFlat"});continue;}
+nx.delete(ka);nx.add(forced.to);cl.add(forced.to);moves.push({f:ka,t:forced.to,phase:forced.phase});continue;
 }
 }
 bCross=1e30;
@@ -248,7 +321,9 @@ function transitionLabel(fk,tk,phase){
 var tf=cellMap[fk],tt=cellMap[tk],adj;
 if(!tf||!tt)return"?";
 if(phase==="lane"){adj=(neigh[fk]||[]).indexOf(tk)>=0;return adj?"slide":"skip";}
-if(phase==="pivot"||phase==="layFlat"||phase==="wall"||phase==="interior")return"rotation";
+if(phase==="slideLocal")return"slide";
+if(phase==="wallSlideComposite")return"slide";
+if(phase==="pivotRotate"||phase==="pivot"||phase==="layFlat"||phase==="wallSlide"||phase==="boundaryTip"||phase==="wall"||phase==="interior")return"rotation";
 return"?";
 }
 function neighborWhyLine(fk,nk,chosenTk,phase,g,t,rightHat,eps,beforeOn){
@@ -259,13 +334,19 @@ o=cellMap[nk];if(!o)return"?";
 chId=cellMap[chosenTk]?cellMap[chosenTk].id:"?";
 dx=o.cx-t.cx;dy=o.cy-t.cy;along=dx*g.gx+dy*g.gy;rd=dx*rightHat.gx+dy*rightHat.gy;
 if(o.kind===t.kind){
-if(phase==="layFlat")return"same-orientation: skipped — lay-flat on container (full edge on wall) before lane slide (flip to #"+chId+")";
+if(phase==="slideLocal")return"local same-kind slide selected before long lane skip (#"+chId+")";
+if(phase==="wallSlideComposite")return"composite wall slide: intermediate same-row tip collapsed into direct slide to #"+chId;
+if(phase==="layFlat")return"same-orientation: skipped — lay-flat on container (increase edge support) before lane slide (flip to #"+chId+")";
+if(phase==="wallSlide")return"same-orientation: skipped — keep full-edge wall contact via local rotation before lane skip (flip to #"+chId+")";
+if(phase==="boundaryTip")return"same-orientation: skipped — boundary tip rotation runs before long lane skip (flip to #"+chId+")";
 if(phase==="pivot")return"same-orientation: skipped — wall pivot runs first (flip to #"+chId+")";
 if(o.ti===t.ti&&o.tj===t.tj+1&&!cellBoundary[fk])return"lane: same-column skip candidate excluded (piece not on container edge)";
 if(along<=eps)return"lane: not downhill (along≤0)";
 return"lane: not min |cross| tier / min along — #"+chId+" wins";
 }
 if(along<=eps)return"tip (flip kind): not downhill";
+if(phase==="wallSlideComposite")return"composite wall slide: intermediate pivot omitted; #"+chId+" is the landed slide state";
+if(phase==="pivotRotate")return"forced boundary pivot: share contact vertex on container wall + clockwise/downhill tie-break";
 if(phase==="pivot"){
 if(sharedEdgeWallAttachScore(fk,nk)<=0)return"flip: shared edge not on container wall (no wall attach — weak vs #"+chId+")";
 return"flip: wall attach — lost tie to #"+chId+" (higher wall score or leftmost)";
@@ -273,6 +354,13 @@ return"flip: wall attach — lost tie to #"+chId+" (higher wall score or leftmos
 if(phase==="layFlat"){
 if(edgeOnContainerWallSupportScore(nk)<edgeOnContainerWallSupportScore(chosenTk))return"flip: lower lay-flat wall support than #"+chId+"";
 return"flip: lay-flat tie — lost to #"+chId+" (more edge length on wall or leftmost)";
+}
+if(phase==="wallSlide"){
+if(edgeOnContainerWallSupportScore(nk)<2)return"flip: does not keep full-edge container contact";
+return"flip: wall-slide tie — lost to #"+chId+" (more wall-edge length, more downhill, or leftmost)";
+}
+if(phase==="boundaryTip"){
+return"flip: boundary-tip tie — lost to #"+chId+" (stronger boundary support / leftmost / downhill)";
 }
 if(phase==="lane")return"flip neighbor: rotation not tried — lane phase runs first (same-orientation move to #"+chId+")";
 if(!cellBoundary[nk])return"tip: neighbor not on mesh boundary (wall phase ignores it; interior may still take another flip)";
@@ -286,6 +374,11 @@ for(mi=0;mi<moves.length;mi++){
 m=moves[mi];fk=m.f;tk=m.t;ph=m.phase||"?";tf=cellMap[fk];tt=cellMap[tk];if(!tf||!tt)continue;
 trans=transitionLabel(fk,tk,ph);
 tel("  ▶ #"+tf.id+" → #"+tt.id+"  phase="+ph+"  transition="+trans);
+if(ph==="pivotRotate")tel("    story: #"+tf.id+" finds wall-contact pivot, no valid local slide, then tips clockwise into #"+tt.id);
+else if(ph==="slideLocal")tel("    story: #"+tf.id+" keeps orientation and performs a local slide into #"+tt.id);
+else if(ph==="wallSlideComposite")tel("    story: #"+tf.id+" does a wall-slide macro move (tip then settle) and lands at #"+tt.id);
+else if(ph==="lane")tel("    story: #"+tf.id+" takes a same-kind lane move to #"+tt.id);
+else if(ph==="wall"||ph==="interior"||ph==="boundaryTip"||ph==="wallSlide"||ph==="pivot"||ph==="layFlat")tel("    story: #"+tf.id+" rotates into #"+tt.id+" to follow boundary/gravity constraints");
 nb=neigh[fk]||[];
 tel("    surrounding (id): "+nb.map(function(k){return cellMap[k]?cellMap[k].id:"?"}).join(", "));
 for(j=0;j<nb.length;j++){
@@ -295,9 +388,12 @@ tel("    #"+nid+": "+neighborWhyLine(fk,nk,tk,ph,g,tf,rightHat,eps,beforeOn));
 }
 }
 function fallTickSequential(onSet){if(layoutSpec.fallCrashDemo===true||fallCrashDemoFromUrl())throw new Error("Crash demo: Fall entered fallTickSequential (remove ?crash=1 and layout.fallCrashDemo to run fall).");var fr=neighborFallOnce(onSet);return{next:fr.next,moves:fr.moves||[]}}
-function computeAnticipatedPathSet(logPreview){
-var sim=new Set(on),path=new Set(on),guard=0,b,aft,fr,tick=0,pairs,endedStable=false;
-if(on.size===0)return new Set();
+function previewIdsFromSet(s){return Array.from(s).map(function(k){var t=cellMap[k];return t?t.id:null;}).filter(function(v){return v!==null;}).sort(function(a,b){return a-b});}
+function computeAnticipatedPathDetails(logPreview){
+var sim=new Set(on),path=new Set(on),guard=0,b,aft,fr,tick=0,pairs,endedStable=false,ids=[],seen={},k;
+if(on.size===0)return{pathSet:new Set(),ids:[]};
+var addIdFromKey=function(key){var t=cellMap[key],id;if(!t)return;id=t.id;if(!seen[id]){seen[id]=1;ids.push(id);}};
+for(k of on)addIdFromKey(k);
 if(logPreview)tel("preview path — simulated ticks (same engine as Fall / Settle):");
 try{
 while(guard<500){
@@ -312,7 +408,8 @@ break;
 }
 tick++;
 sim=aft;
-aft.forEach(function(k){path.add(k)});
+if(fr.moves&&fr.moves.length){fr.moves.forEach(function(m){path.add(m.t);addIdFromKey(m.t);});}
+else aft.forEach(function(k2){path.add(k2);addIdFromKey(k2);});
 if(logPreview){
 pairs=(fr.moves||[]).map(function(m){return telMovePair(m.f,m.t);});
 tel("preview tick "+tick+": "+(pairs.length?pairs.join(" "):""));
@@ -321,9 +418,13 @@ telTickDetail(b,fr.moves||[]);
 }
 if(logPreview&&!endedStable&&guard>=500)tel("preview path — stopped at 500 steps (cap)");
 }catch(e){}
-return path;
+return{pathSet:path,ids:ids};
 }
-function clearPathPreview(){pathPreview=null}
+function computeAnticipatedPathSet(logPreview){
+return computeAnticipatedPathDetails(logPreview).pathSet;
+}
+function setPreviewIdsBox(ids){var el=document.getElementById("ppIds");if(!el)return;el.textContent=ids&&ids.length?ids.join("\n"):"";}
+function clearPathPreview(){pathPreview=null;setPreviewIdsBox([])}
 function updPathPreviewButton(){var pp=document.getElementById("pp");if(pp)pp.textContent=pathPreview?"Hide path preview":"Preview path"}
 function setsEqual(A,B){if(A.size!==B.size)return false;var it=A.values(),x;while(!(x=it.next()).done)if(!B.has(x.value))return false;return true;}
 function sortedKeys(s){return Array.from(s).sort()}
@@ -369,13 +470,78 @@ byR={};for(i=0;i<cells.length;i++){tr=cells[i];if(!byR[tr.tj])byR[tr.tj]=[];byR[
 for(j=0;j<rk.length;j++){rn=rk[j];tr=byR[rn];minx=tr[0].cx;sumy=0;for(i=0;i<tr.length;i++){if(tr[i].cx<minx)minx=tr[i].cx;sumy+=tr[i].cy;}avgy=sumy/tr.length;txt=g.appendChild(document.createElementNS("http://www.w3.org/2000/svg","text"));txt.setAttribute("x",String(minx-a*0.55));txt.setAttribute("y",String(avgy));txt.setAttribute("class","rowR");txt.textContent="r"+rn;}
 var wEl=document.getElementById("w");wEl.innerHTML="";wEl.appendChild(boardBuildBannerNode());wEl.appendChild(svg);updRot();updContainerShapeLab();updHistUi();updPathPreviewButton();}
 function atLatest(){return snapIdx===snapshots.length-1;}
+if(HEADLESS_SIM&&typeof globalThis!=="undefined"){
+globalThis.__TG_DEBUG__={
+previewIdsForCell:function(containerType,cellId){
+var ii,target,det;
+if(containerType==="V")rebuildWorldFromLayout(cloneLayoutV());else rebuildWorldFromLayout(cloneLayoutT());
+rotStep=0;on=new Set();
+target=null;for(ii=0;ii<cells.length;ii++){if(cells[ii].id===cellId){target=cells[ii];break;}}
+if(!target)return[];
+on.add(kKey(target));
+det=computeAnticipatedPathDetails(false);
+return det.ids;
+},
+previewTraceForCell:function(containerType,cellId){
+var ii,target,sim,b,fr,aft,guard=0,trace=[];
+if(containerType==="V")rebuildWorldFromLayout(cloneLayoutV());else rebuildWorldFromLayout(cloneLayoutT());
+rotStep=0;on=new Set();
+target=null;for(ii=0;ii<cells.length;ii++){if(cells[ii].id===cellId){target=cells[ii];break;}}
+if(!target)return trace;
+on.add(kKey(target));sim=new Set(on);
+while(guard<500){
+guard++;b=new Set(sim);fr=fallTickSequential(sim);aft=fr.next;
+if(setsEqual(b,aft))break;
+if(fr.moves&&fr.moves.length)fr.moves.forEach(function(m){trace.push({from:cellMap[m.f]?cellMap[m.f].id:null,to:cellMap[m.t]?cellMap[m.t].id:null,phase:m.phase||"?"});});
+sim=aft;
+}
+return trace;
+},
+supportById:function(id){
+var ii,t,k;
+for(ii=0;ii<cells.length;ii++){if(cells[ii].id===id){t=cells[ii];break;}}
+if(!t)return null;
+k=kKey(t);
+return{edgeSupport:edgeOnContainerWallSupportScore(k),nearWall:triangleHasVertexNearContainerWall(t),boundary:!!cellBoundary[k],ti:t.ti,tj:t.tj,kind:t.kind};
+},
+neighborsForId:function(id){
+var ii,t,k,g,arr=[],j,nk,o,dx,dy,along;
+for(ii=0;ii<cells.length;ii++){if(cells[ii].id===id){t=cells[ii];break;}}
+if(!t)return[];
+k=kKey(t);g=grav(rotStep);
+for(j=0;j<(neigh[k]||[]).length;j++){
+nk=neigh[k][j];o=cellMap[nk];if(!o)continue;
+dx=o.cx-t.cx;dy=o.cy-t.cy;along=dx*g.gx+dy*g.gy;
+arr.push({id:o.id,ti:o.ti,tj:o.tj,kind:o.kind,boundary:!!cellBoundary[nk],along:Math.round(along*1000)/1000});
+}
+arr.sort(function(a,b){return a.id-b.id;});
+return arr;
+},
+vertexNeighborsForId:function(id){
+var ii,t,k,arr=[];
+for(ii=0;ii<cells.length;ii++){if(cells[ii].id===id){t=cells[ii];break;}}
+if(!t)return[];
+k=kKey(t);
+(vertexNeigh[k]||[]).forEach(function(nk){var o=cellMap[nk];if(o)arr.push({id:o.id,ti:o.ti,tj:o.tj,kind:o.kind,boundary:!!cellBoundary[nk],nearWall:triangleHasVertexNearContainerWall(o)});});
+arr.sort(function(a,b){return a.id-b.id;});
+return arr;
+},
+cellInfoById:function(id){
+var ii,t;
+for(ii=0;ii<cells.length;ii++){t=cells[ii];if(t.id===id)return{id:t.id,ti:t.ti,tj:t.tj,kind:t.kind,boundary:!!cellBoundary[kKey(t)]};}
+return null;
+},
+previewIdsForCurrent:function(){return previewIdsFromSet(pathPreview||new Set());}
+};
+return;
+}
 document.getElementById("containerT").onclick=function(){applyContainerPreset("T")};
 document.getElementById("containerV").onclick=function(){applyContainerPreset("V")};
 document.getElementById("a0").onclick=function(){logClick("All OFF");truncateToHere();on=new Set();clearPathPreview();pushSnapshot("all OFF");R();telExpectFall();};
 document.getElementById("a1").onclick=function(){logClick("All ON");truncateToHere();on=new Set(cells.map(kKey));clearPathPreview();pushSnapshot("all ON");R();telExpectFall();};
 document.getElementById("iv").onclick=function(){logClick("Invert");truncateToHere();var n2=new Set(),i,t,kk;for(i=0;i<cells.length;i++){t=cells[i];kk=kKey(t);if(!on.has(kk))n2.add(kk)}on=n2;clearPathPreview();pushSnapshot("invert");R();telExpectFall();};
 document.getElementById("tn").onclick=function(){logClick(showNums?"Hide numbers":"Show numbers");showNums=!showNums;document.getElementById("tn").textContent=showNums?"Hide numbers":"Show numbers";R();};
-document.getElementById("pp").onclick=function(){logClick(pathPreview?"Hide path preview":"Preview path");if(pathPreview){clearPathPreview();R();tel("path preview hidden");return}if(on.size===0){tel("Preview path: light at least one triangle first");return}pathPreview=computeAnticipatedPathSet(true);R();tel("path preview: "+pathPreview.size+" cell(s) highlighted — yellow = future visits; green = current ON")};
+document.getElementById("pp").onclick=function(){var d;logClick(pathPreview?"Hide path preview":"Preview path");if(pathPreview){clearPathPreview();R();tel("path preview hidden");return}if(on.size===0){tel("Preview path: light at least one triangle first");return}d=computeAnticipatedPathDetails(true);pathPreview=d.pathSet;setPreviewIdsBox(d.ids);R();tel("path preview: "+pathPreview.size+" cell(s) highlighted — yellow = future visits; green = current ON")};
 document.getElementById("ft").onclick=function(){logClick("Fall 1 tick");if(!atLatest()){tel("(Forward to end before new fall)");return}if(on.size===0){tel("Fall: click some triangles ON (green) first — Fall only moves pieces.");return}var b=new Set(on),fs=fallTickSequential(on),aft=fs.next;if(setsEqual(b,aft)){tel("fall 1 tick: no movement (nothing to do — try Rotate container or different layout)");R();telExpectFall();return}clearPathPreview();on=aft;pushSnapshot("fall tick");fallTelemetry(b,aft,"fall tick",fs.moves);R();telExpectFall();};
 document.getElementById("st").onclick=function(){logClick("Settle");if(!atLatest()){tel("(Forward to end before settle)");return}if(on.size===0){tel("Settle: need at least one green piece first.");return}clearPathPreview();var guard=0,b,aft,tick=0;while(guard<500){guard++;b=new Set(on);var sr=fallTickSequential(on);aft=sr.next;if(setsEqual(b,aft))break;on=aft;tick++;pushSnapshot("settle "+tick);fallTelemetry(b,aft,"settle",sr.moves);}tel("settle: "+tick+" inner step(s), done");R();telExpectFall();};
 document.getElementById("hb").onclick=function(){logClick("Back «");if(snapIdx>0)applySnapshot(snapIdx-1);};

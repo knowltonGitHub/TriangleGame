@@ -35,6 +35,9 @@ pre.o{margin-top:8px;padding:12px;background:#0d1117;border-radius:8px;font-size
 .pp-legend{margin-top:4px;display:flex;flex-wrap:wrap;gap:6px;max-width:min(100%,980px);width:100%}
 .pp-chip{display:inline-flex;align-items:center;gap:6px;padding:2px 8px;border:1px solid #3c4043;border-radius:999px;background:#1f2430;color:#c9d1d9;font-size:11px;font-family:ui-monospace,monospace}
 .pp-swatch{width:10px;height:10px;border-radius:2px;display:inline-block;border:1px solid rgba(255,255,255,.35)}
+.shotOpt{display:inline-flex;align-items:center;gap:6px;color:var(--t);font-size:.82rem;background:#2f333b;border:1px solid #4b5158;padding:7px 10px;border-radius:8px}
+.shotOpt input[type="checkbox"]{accent-color:#58a6ff}
+.shotOpt input[type="text"]{width:78px;background:#1f232a;color:var(--t);border:1px solid #5f6368;border-radius:6px;padding:4px 6px;font-size:.8rem}
 #histLab{font-size:.8rem;margin:4px 0 8px;color:var(--m)}
 .pg-ver{font-size:.72rem;color:#8ab4f8;font-weight:700;margin-left:10px;white-space:nowrap}
 </style>
@@ -51,6 +54,10 @@ pre.o{margin-top:8px;padding:12px;background:#0d1117;border-radius:8px;font-size
 <button type="button" id="tn">Hide numbers</button>
 <button type="button" id="ft">Fall 1 tick</button>
 <button type="button" id="st">Settle</button>
+<label class="shotOpt"><input type="checkbox" id="ssTick"/>Take screenshot per tick</label>
+<label class="shotOpt">Tag <input type="text" id="ssTag" value="tg" maxlength="24" title="Filename prefix"/></label>
+<button type="button" id="ssReset" title="Reset screenshot counter">Reset shot #</button>
+<button type="button" id="ssNow" title="Capture board screenshot now">Screenshot now</button>
 <button type="button" id="pp" title="Show triangles the engine expects pieces to visit if you Settle (same rules as Fall) — light yellow">Preview path</button>
 <button type="button" id="hb" disabled>&laquo; Back</button>
 <button type="button" id="hf" disabled>Forward &raquo;</button>
@@ -70,7 +77,7 @@ pre.o{margin-top:8px;padding:12px;background:#0d1117;border-radius:8px;font-size
 <pre class="o" id="o" hidden></pre>
 <script>
 (function(){
-var PLAYGROUND_BUILD=54;
+var PLAYGROUND_BUILD=56;
 function applyPlaygroundBuildLabel(){var s="build "+PLAYGROUND_BUILD,e=document.getElementById("pgVer"),t=document.querySelector("title"),bb=document.getElementById("boardBuildBanner");if(e)e.textContent=s;if(t)t.textContent="Triangle playground · "+s;if(bb)bb.textContent="BUILD "+PLAYGROUND_BUILD}
 function boardBuildBannerNode(){var b=document.createElement("div");b.id="boardBuildBanner";b.className="board-build-banner";b.textContent="BUILD "+PLAYGROUND_BUILD;return b}
 function cloneLayoutT(){return{side:34,originX:24,originY:24,gridRows:22,gridCols:26,topBar:{minX:120,maxX:780,minY:40,maxY:220},stem:{minX:330,maxX:570,minY:220,maxY:640}}}
@@ -480,10 +487,74 @@ function sortedKeys(s){return Array.from(s).sort()}
 var on=new Set(),showNums=true,rotStep=0,pathPreview=null,pathPreviewLayers=[],litColorByKey={},nextLitColorIdx=0;
 var snapshots=[{keys:[],rot:0,colors:{},nextColorIdx:0,label:"start"}];
 var snapIdx=0;
+var screenshotTickSeq=0;
 var maxTel=400;
 var telLines=[];
 function tel(s){var line=(new Date()).toLocaleTimeString()+"  "+s;telLines.unshift(line);if(telLines.length>maxTel)telLines.length=maxTel;var el=document.getElementById("tel");if(el)el.textContent=telLines.join("\n");}
 function logClick(label){tel("click: "+label);}
+function padNum(n,w){var s=String(Math.max(0,Math.floor(n)));while(s.length<w)s="0"+s;return s;}
+function screenshotTimestampTag(){
+var d=new Date();
+return d.getFullYear()+padNum(d.getMonth()+1,2)+padNum(d.getDate(),2)+"-"+padNum(d.getHours(),2)+padNum(d.getMinutes(),2)+padNum(d.getSeconds(),2)+"-"+padNum(d.getMilliseconds(),3);
+}
+function screenshotPrefix(){
+var el=document.getElementById("ssTag"),raw=el?String(el.value||""):"tg",s=raw.replace(/[^a-zA-Z0-9_-]+/g,"").slice(0,24);
+if(!s)s="tg";
+if(el&&el.value!==s)el.value=s;
+return s;
+}
+function cloneSvgWithInlineStyles(svg){
+var clone=svg.cloneNode(true),src=svg.querySelectorAll("*"),dst=clone.querySelectorAll("*"),i,cs,j,props=["fill","stroke","strokeWidth","strokeLinejoin","strokeLinecap","shapeRendering","fontSize","fontFamily","fontWeight","textAnchor","dominantBaseline","opacity","display","visibility"];
+for(i=0;i<src.length&&i<dst.length;i++){
+cs=getComputedStyle(src[i]);
+for(j=0;j<props.length;j++)dst[i].style[props[j]]=cs[props[j]];
+}
+return clone;
+}
+function saveBoardScreenshot(seq){
+return new Promise(function(resolve,reject){
+var host=document.getElementById("w"),svg=host?host.querySelector("svg"):null,ser,clone,img,xml,svgW,svgH,bh=42,canvas,ctx,aTag,name,bg,bg2;
+if(!host||!svg){resolve(false);return;}
+clone=cloneSvgWithInlineStyles(svg);
+svgW=Math.max(1,Math.round(parseFloat(svg.getAttribute("width"))||svg.viewBox.baseVal.width||svg.clientWidth||1));
+svgH=Math.max(1,Math.round(parseFloat(svg.getAttribute("height"))||svg.viewBox.baseVal.height||svg.clientHeight||1));
+clone.setAttribute("width",String(svgW));
+clone.setAttribute("height",String(svgH));
+ser=new XMLSerializer();xml=ser.serializeToString(clone);
+img=new Image();
+img.onload=function(){
+canvas=document.createElement("canvas");canvas.width=svgW;canvas.height=svgH+bh;
+ctx=canvas.getContext("2d");
+bg=getComputedStyle(document.body).backgroundColor||"#1a1d23";
+bg2=getComputedStyle(host).backgroundColor||"#252931";
+ctx.fillStyle=bg2;ctx.fillRect(0,0,canvas.width,canvas.height);
+ctx.fillStyle=bg;ctx.fillRect(0,0,canvas.width,bh);
+ctx.strokeStyle="rgba(74,222,128,0.27)";ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(0,bh-1);ctx.lineTo(canvas.width,bh-1);ctx.stroke();
+ctx.fillStyle="#e8eaed";ctx.font="700 20px system-ui,sans-serif";ctx.fillText("BUILD "+PLAYGROUND_BUILD,16,28);
+ctx.drawImage(img,0,bh,svgW,svgH);
+aTag=document.createElement("a");
+name=screenshotPrefix()+"_b"+PLAYGROUND_BUILD+"_tick-"+padNum(seq,4)+"_"+screenshotTimestampTag()+".png";
+aTag.href=canvas.toDataURL("image/png");aTag.download=name;document.body.appendChild(aTag);aTag.click();aTag.remove();
+resolve(true);
+};
+img.onerror=function(){reject(new Error("screenshot render failed"));};
+img.src="data:image/svg+xml;charset=utf-8,"+encodeURIComponent(xml);
+});
+}
+function captureBoardScreenshot(reason){
+var seq;
+if(HEADLESS_SIM)return;
+screenshotTickSeq++;
+seq=screenshotTickSeq;
+requestAnimationFrame(function(){
+saveBoardScreenshot(seq).then(function(ok){if(ok)tel("screenshot saved: "+(reason||"shot")+" "+padNum(seq,4));}).catch(function(e){tel("screenshot failed: "+(e&&e.message?e.message:e));});
+});
+}
+function maybeCaptureTickScreenshot(){
+var ck=document.getElementById("ssTick");
+if(!ck||!ck.checked)return;
+captureBoardScreenshot("tick");
+}
 function updHistUi(){var hb=document.getElementById("hb"),hf=document.getElementById("hf"),hl=document.getElementById("histLab");if(hb)hb.disabled=snapIdx<=0;if(hf)hf.disabled=snapIdx>=snapshots.length-1;if(hl)hl.textContent="History: "+snapIdx+" / "+(snapshots.length-1)+"  "+(snapshots[snapIdx].label||"");}
 function pushSnapshot(label){snapshots=snapshots.slice(0,snapIdx+1);snapshots.push({keys:sortedKeys(on),rot:rotStep,colors:cloneLitColorMap(litColorByKey),nextColorIdx:nextLitColorIdx,label:label||""});snapIdx=snapshots.length-1;updHistUi();}
 function truncateToHere(){if(snapIdx<snapshots.length-1){snapshots=snapshots.slice(0,snapIdx+1);}}
@@ -600,8 +671,11 @@ document.getElementById("a0").onclick=function(){logClick("All OFF");truncateToH
 document.getElementById("a1").onclick=function(){logClick("All ON");truncateToHere();on=new Set(cells.map(kKey));litColorByKey={};on.forEach(function(kk){assignColorForKey(kk)});clearPathPreview();pushSnapshot("all ON");R();telExpectFall();};
 document.getElementById("iv").onclick=function(){logClick("Invert");truncateToHere();var n2=new Set(),i,t,kk;for(i=0;i<cells.length;i++){t=cells[i];kk=kKey(t);if(!on.has(kk)){n2.add(kk);assignColorForKey(kk)}}on=n2;Object.keys(litColorByKey).forEach(function(kx){if(!on.has(kx))delete litColorByKey[kx]});clearPathPreview();pushSnapshot("invert");R();telExpectFall();};
 document.getElementById("tn").onclick=function(){logClick(showNums?"Hide numbers":"Show numbers");showNums=!showNums;document.getElementById("tn").textContent=showNums?"Hide numbers":"Show numbers";R();};
+document.getElementById("ssReset").onclick=function(){screenshotTickSeq=0;tel("screenshot counter reset (next tick = 0001)");};
+document.getElementById("ssTag").onchange=function(){screenshotPrefix();};
+document.getElementById("ssNow").onclick=function(){logClick("Screenshot now");captureBoardScreenshot("manual");};
 document.getElementById("pp").onclick=function(){var d;logClick(pathPreview?"Hide path preview":"Preview path");if(pathPreview){clearPathPreview();R();tel("path preview hidden");return}if(on.size===0){tel("Preview path: light at least one triangle first");return}d=computeAnticipatedPathDetails(true);pathPreview=d.pathSet;pathPreviewLayers=d.layers||[];setPreviewIdsBox(d.ids);setPreviewLegend(pathPreviewLayers);R();tel("path preview: "+pathPreview.size+" cell(s) highlighted — preview path uses each lit triangle's assigned color")};
-document.getElementById("ft").onclick=function(){logClick("Fall 1 tick");if(!atLatest()){tel("(Forward to end before new fall)");return}if(on.size===0){tel("Fall: light some triangles first — Fall only moves lit pieces.");return}var b=new Set(on),fs=fallTickSequential(on),aft=fs.next;if(setsEqual(b,aft)){tel("fall 1 tick: no movement (nothing to do — try Rotate container or different layout)");R();telExpectFall();return}clearPathPreview();if(fs.moves&&fs.moves.length)applyMovesWithColors(fs.moves,aft);on=aft;pushSnapshot("fall tick");fallTelemetry(b,aft,"fall tick",fs.moves);R();telExpectFall();};
+document.getElementById("ft").onclick=function(){logClick("Fall 1 tick");if(!atLatest()){tel("(Forward to end before new fall)");return}if(on.size===0){tel("Fall: light some triangles first — Fall only moves lit pieces.");return}var b=new Set(on),fs=fallTickSequential(on),aft=fs.next;if(setsEqual(b,aft)){tel("fall 1 tick: no movement (nothing to do — try Rotate container or different layout)");R();telExpectFall();maybeCaptureTickScreenshot();return}clearPathPreview();if(fs.moves&&fs.moves.length)applyMovesWithColors(fs.moves,aft);on=aft;pushSnapshot("fall tick");fallTelemetry(b,aft,"fall tick",fs.moves);R();telExpectFall();maybeCaptureTickScreenshot();};
 document.getElementById("st").onclick=function(){logClick("Settle");if(!atLatest()){tel("(Forward to end before settle)");return}if(on.size===0){tel("Settle: need at least one lit piece first.");return}clearPathPreview();var guard=0,b,aft,tick=0;while(guard<500){guard++;b=new Set(on);var sr=fallTickSequential(on);aft=sr.next;if(setsEqual(b,aft))break;if(sr.moves&&sr.moves.length)applyMovesWithColors(sr.moves,aft);on=aft;tick++;pushSnapshot("settle "+tick);fallTelemetry(b,aft,"settle",sr.moves);}tel("settle: "+tick+" inner step(s), done");R();telExpectFall();};
 document.getElementById("hb").onclick=function(){logClick("Back «");if(snapIdx>0)applySnapshot(snapIdx-1);};
 document.getElementById("hf").onclick=function(){logClick("Forward »");if(snapIdx<snapshots.length-1)applySnapshot(snapIdx+1);};

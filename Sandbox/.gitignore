@@ -1,0 +1,15 @@
+# Local automation dependencies
+node_modules/
+
+# Generated automation outputs
+auto-runs/
+frames-from-mp4/
+frames-from-video/
+Sandbox/
+
+# Generated screenshots and media
+*_tick-*.png
+*movie-*.mp4
+*movie-*.gif
+fall-debug*.mp4
+fall-debug*.gif

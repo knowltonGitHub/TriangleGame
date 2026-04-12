@@ -16,12 +16,30 @@ open-in-chrome.bat
 make-tick-media.ps1
   - Build MP4 + GIF from screenshot frames in this folder.
   - Example:
-      powershell -ExecutionPolicy Bypass -File "Sandbox/make-tick-media.ps1" -Pattern "tg_b56_tick-*.png" -FrameSeconds 0.5 -OutputBase "fall-debug"
+      powershell -ExecutionPolicy Bypass -File "Sandbox/make-tick-media.ps1" -InputDir "Sandbox" -Pattern "tg_b56_tick-*.png" -FrameSeconds 0.5 -OutputBase "fall-debug" -OutputDir "Sandbox"
 
 extract-video-frames.ps1
   - Extract PNG frames from a video (reverse direction: MP4 -> PNG).
   - Example:
       powershell -ExecutionPolicy Bypass -File "Sandbox/extract-video-frames.ps1" -InputVideo "Sandbox/fall-debug-b55.mp4" -OutputDir "Sandbox/frames-from-mp4" -OutputPrefix "tick" -Fps 2
+
+media-bridge.cjs
+  - Optional local HTTP bridge so the playground page can trigger MP4/GIF build and MP4->PNG extraction.
+  - Start it once in a terminal:
+      node Sandbox/media-bridge.cjs
+  - Then in index.html use toolbar buttons:
+      Make MP4/GIF
+      MP4->PNG
+      Run scenario
+  - Browser security note: page JS cannot execute local ffmpeg directly; this bridge is the safe opt-in local integration.
+
+run-tick-scenario.cjs + scenarios/demo-run.json
+  - Headless automation: set container, light IDs, click Fall N ticks, save PNG per tick, then auto-build MP4/GIF.
+  - Requires:
+      npm install --prefix Sandbox playwright
+      node Sandbox/media-bridge.cjs
+  - Direct CLI example:
+      node Sandbox/run-tick-scenario.cjs --scenario Sandbox/scenarios/demo-run.json
 
 From Cursor / VS Code:
   - Ctrl+Shift+P (Command Palette) -> "Tasks: Run Task"

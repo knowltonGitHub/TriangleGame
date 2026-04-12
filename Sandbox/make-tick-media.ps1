@@ -1,6 +1,9 @@
 #Requires -Version 5.1
 param(
     [Parameter(Mandatory = $false)]
+    [string]$InputDir = ".",
+
+    [Parameter(Mandatory = $false)]
     [string]$Pattern = "tg_b*_tick-*.png",
 
     [Parameter(Mandatory = $false)]
@@ -24,18 +27,29 @@ function Require-Command([string]$name) {
 function To-FfmpegPath([string]$path) {
     return ([System.IO.Path]::GetFullPath($path)).Replace("\", "/")
 }
+function Resolve-AnyPath([string]$baseDir, [string]$p) {
+    if ([System.IO.Path]::IsPathRooted($p)) {
+        return [System.IO.Path]::GetFullPath($p)
+    }
+    return [System.IO.Path]::GetFullPath((Join-Path $baseDir $p))
+}
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location -LiteralPath $scriptDir
 
 Require-Command "ffmpeg"
 
-$files = Get-ChildItem -File -Path $scriptDir -Filter $Pattern | Sort-Object Name
-if (-not $files -or $files.Count -eq 0) {
-    throw "No PNG files matched pattern '$Pattern' in '$scriptDir'."
+$inputDirAbs = Resolve-AnyPath $scriptDir $InputDir
+if (-not (Test-Path -LiteralPath $inputDirAbs)) {
+    throw "Input directory not found: $inputDirAbs"
 }
 
-$outDirAbs = [System.IO.Path]::GetFullPath((Join-Path $scriptDir $OutputDir))
+$files = Get-ChildItem -File -Path $inputDirAbs -Filter $Pattern | Sort-Object Name
+if (-not $files -or $files.Count -eq 0) {
+    throw "No PNG files matched pattern '$Pattern' in '$inputDirAbs'."
+}
+
+$outDirAbs = Resolve-AnyPath $scriptDir $OutputDir
 if (-not (Test-Path -LiteralPath $outDirAbs)) {
     New-Item -ItemType Directory -Path $outDirAbs | Out-Null
 }
@@ -60,7 +74,7 @@ try {
     $lines.Add("file '$last'")
     Set-Content -LiteralPath $listPath -Value $lines -Encoding ASCII
 
-    & ffmpeg -y -f concat -safe 0 -i $listPath -vf "fps=1/$FrameSeconds,format=yuv420p" -c:v libx264 $mp4Path
+    & ffmpeg -y -f concat -safe 0 -i $listPath -vf "fps=1/$FrameSeconds,pad=ceil(iw/2)*2:ceil(ih/2)*2,format=yuv420p" -c:v libx264 $mp4Path
     if ($LASTEXITCODE -ne 0) { throw "ffmpeg MP4 creation failed." }
 
     & ffmpeg -y -f concat -safe 0 -i $listPath -filter_complex "fps=1/$FrameSeconds,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse" $gifPath

@@ -1,0 +1,10 @@
+{
+  "runName": "demo",
+  "container": "V",
+  "litIds": [37, 84],
+  "ticks": 5,
+  "frameSeconds": 0.5,
+  "prefix": "demo",
+  "outputDir": "Sandbox/auto-runs/demo",
+  "browserChannel": "chrome"
+}

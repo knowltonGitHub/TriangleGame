@@ -50,7 +50,7 @@ input[type=text]{background:#0d1117;border:1px solid #30363d;color:var(--t);padd
 <div class="sw" id="w"></div>
 <script>
 (function(){
-var EDITOR_BUILD=7;
+var EDITOR_BUILD=8;
 var M=Math.sqrt(3);
 var SIDE,ORIGIN_X,ORIGIN_Y,GRID_ROWS,GRID_COLS;
 function H(a){return a*M/2}
@@ -157,6 +157,7 @@ function pushUndo(){undoStack.push(snap());if(undoStack.length>80)undoStack.shif
 function doUndo(){if(undoStack.length===0)return;var prev=undoStack.pop();applySnap(prev)}
 function syncUndoBtn(){var b=document.getElementById("undo");if(b)b.disabled=undoStack.length===0}
 function syncRotLab(){var el=document.getElementById("rotLab");if(el)el.textContent="Editor orientation: "+(rotStep*60)+" deg CW (step "+rotStep+" of 6)"}
+function isDrawableKey(k){return !!(guideKeys&&guideKeys.has(k))}
 function drawCellsForView(){
   if(!playgroundView)return cells;
   return cells.filter(function(t){
@@ -170,14 +171,15 @@ function syncViewBtn(){
   b.textContent=playgroundView?"View: Playground":"View: Full mesh";
 }
 function R(){
-  var i,k,tr,path,txt,g,svg,rotg,rcX,rcY,n,dx,dy,d,Rm,Rcell,byR,rk,rn,minx,sumy,avgy,j,v0,sub,dOff="",dOn="",oxL=ORIGIN_X,oyL=ORIGIN_Y,a=SIDE,drawCells=drawCellsForView();
+  var i,k,tr,path,txt,g,svg,rotg,rcX,rcY,n,dx,dy,d,Rm,Rcell,Rf,framePad,frameYBias,byR,rk,rn,minx,sumy,avgy,j,v0,sub,dOff="",dOn="",oxL=ORIGIN_X,oyL=ORIGIN_Y,a=SIDE,drawCells=drawCellsForView();
   n=drawCells.length;
   if(!cells.length){document.getElementById("w").innerHTML="<p class=h style=color:var(--m)>No mesh</p>";var lab0=document.getElementById("meshLab");if(lab0)lab0.textContent="Mesh: side="+SIDE+" origin=("+ORIGIN_X+","+ORIGIN_Y+") grid="+GRID_COLS+"×"+GRID_ROWS+" · 0 cells";syncUndoBtn();syncViewBtn();return}
   rcX=0;rcY=0;for(i=0;i<n;i++){tr=drawCells[i];rcX+=tr.cx;rcY+=tr.cy}
   rcX/=n;rcY/=n;Rcell=a/Math.sqrt(3);Rm=0;for(i=0;i<n;i++){tr=drawCells[i];dx=tr.cx-rcX;dy=tr.cy-rcY;d=Math.sqrt(dx*dx+dy*dy)+Rcell;if(d>Rm)Rm=d}Rm+=Math.max(8,a*0.22);
+  framePad=Math.max(16,a*0.75);frameYBias=Math.max(6,a*0.28);Rf=Rm+framePad;
   svg=document.createElementNS("http://www.w3.org/2000/svg","svg");
-  svg.setAttribute("width",String(2*Rm));svg.setAttribute("height",String(2*Rm));
-  svg.setAttribute("viewBox",(rcX-Rm)+" "+(rcY-Rm)+" "+(2*Rm)+" "+(2*Rm));
+  svg.setAttribute("width",String(2*Rf));svg.setAttribute("height",String(2*Rf));
+  svg.setAttribute("viewBox",(rcX-Rf)+" "+((rcY-Rf)+frameYBias)+" "+(2*Rf)+" "+(2*Rf));
   rotg=svg.appendChild(document.createElementNS("http://www.w3.org/2000/svg","g"));
   rotg.setAttribute("transform","rotate("+(rotStep*60)+","+rcX+","+rcY+")");
   g=rotg.appendChild(document.createElementNS("http://www.w3.org/2000/svg","g"));
@@ -214,6 +216,7 @@ function onCellPointerDown(k,ev){
 }
 function onCellPointerEnter(k){
   if(!ptrDown||!dragPaint)return;
+  if(!isDrawableKey(k))return;
   if(k===lastPaintKey)return;
   lastPaintKey=k;
   if(!onKeys.has(k)){onKeys.add(k);R()}
@@ -237,6 +240,7 @@ function onCellPointerUp(k,ev){
   ptrDown=false;
   if(!dragPaint){
     pushUndo();
+    if(!isDrawableKey(startKey)){dragPaint=false;pushedStrokeUndo=false;lastPaintKey=null;startKey=null;return}
     if(onKeys.has(startKey))onKeys.delete(startKey);else onKeys.add(startKey);
     R()
   }
@@ -250,13 +254,14 @@ document.addEventListener("pointermove",function(ev){
   if(!dragPaint){
     dragPaint=true;
     if(!pushedStrokeUndo){pushUndo();pushedStrokeUndo=true}
+    if(!isDrawableKey(startKey))return;
     if(!onKeys.has(startKey))onKeys.add(startKey);
     lastPaintKey=startKey;
     R()
   }
 });
 function doFillFromSeed(seedK){
-  if(onKeys.has(seedK))return;
+  if(onKeys.has(seedK)||!isDrawableKey(seedK))return;
   pushUndo();
   var q=[seedK],seen={};seen[seedK]=1;
   var add=[];
@@ -268,6 +273,7 @@ function doFillFromSeed(seedK){
     for(i=0;i<nb.length;i++){
       nk=nb[i];
       if(onKeys.has(nk))continue;
+      if(!isDrawableKey(nk))continue;
       if(seen[nk])continue;
       seen[nk]=1;
       q.push(nk)
@@ -316,7 +322,7 @@ document.getElementById("load").onchange=function(e){
       if(o.keys&&Array.isArray(o.keys)){
         for(i=0;i<o.keys.length;i++){
           kk=o.keys[i];
-          if(typeof kk==="string"&&cellMap[kk])nk.add(kk)
+          if(typeof kk==="string"&&cellMap[kk]&&isDrawableKey(kk))nk.add(kk)
         }
       }
       onKeys=nk;

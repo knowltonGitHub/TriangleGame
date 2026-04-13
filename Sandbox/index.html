@@ -86,7 +86,7 @@ pre.o{margin-top:8px;padding:12px;background:#0d1117;border-radius:8px;font-size
 <pre class="o" id="o" hidden></pre>
 <script>
 (function(){
-var PLAYGROUND_BUILD=59;
+var PLAYGROUND_BUILD=60;
 function applyPlaygroundBuildLabel(){var s="build "+PLAYGROUND_BUILD,e=document.getElementById("pgVer"),t=document.querySelector("title"),bb=document.getElementById("boardBuildBanner");if(e)e.textContent=s;if(t)t.textContent="Triangle playground · "+s;if(bb)bb.textContent="BUILD "+PLAYGROUND_BUILD}
 function boardBuildBannerNode(){var b=document.createElement("div");b.id="boardBuildBanner";b.className="board-build-banner";b.textContent="BUILD "+PLAYGROUND_BUILD;return b}
 function cloneLayoutT(){return{side:34,originX:24,originY:24,gridRows:22,gridCols:26,topBar:{minX:120,maxX:780,minY:40,maxY:220},stem:{minX:330,maxX:570,minY:220,maxY:640}}}
@@ -667,11 +667,12 @@ if(setsEqual(b,aft)){tel("fall 1 tick: no movement (nothing to do — try Rotate
 clearPathPreview();if(fs.moves&&fs.moves.length)applyMovesWithColors(fs.moves,aft);on=aft;pushSnapshot("fall tick");fallTelemetry(b,aft,"fall tick",fs.moves);R();telExpectFall();maybeCaptureTickScreenshot();
 return true;
 }
-function R(){var i,j,rn,svg,rotg,g,k,path,txt,tr,rcX,rcY,n,dx,dy,d,Rm,Rcell,byR,rk,minx,sumy,avgy;
+function R(){var i,j,rn,svg,rotg,g,k,path,txt,tr,rcX,rcY,n,dx,dy,d,Rm,Rcell,Rf,framePad,frameYBias,byR,rk,minx,sumy,avgy;
 n=cells.length;rcX=0;rcY=0;for(i=0;i<n;i++){tr=cells[i];rcX+=tr.cx;rcY+=tr.cy;}
 if(!n){var wN=document.getElementById("w");wN.innerHTML="";wN.appendChild(boardBuildBannerNode());updRot();updContainerShapeLab();clearPathPreview();updPathPreviewButton();return}rcX/=n;rcY/=n;Rcell=a/Math.sqrt(3);Rm=0;for(i=0;i<n;i++){tr=cells[i];dx=tr.cx-rcX;dy=tr.cy-rcY;d=Math.sqrt(dx*dx+dy*dy)+Rcell;if(d>Rm)Rm=d}Rm+=Math.max(8,a*0.22);
-svg=document.createElementNS("http://www.w3.org/2000/svg","svg");svg.setAttribute("width",String(2*Rm));svg.setAttribute("height",String(2*Rm));
-svg.setAttribute("viewBox",(rcX-Rm)+" "+(rcY-Rm)+" "+(2*Rm)+" "+(2*Rm));
+framePad=Math.max(16,a*0.75);frameYBias=Math.max(6,a*0.28);Rf=Rm+framePad;
+svg=document.createElementNS("http://www.w3.org/2000/svg","svg");svg.setAttribute("width",String(2*Rf));svg.setAttribute("height",String(2*Rf));
+svg.setAttribute("viewBox",(rcX-Rf)+" "+((rcY-Rf)+frameYBias)+" "+(2*Rf)+" "+(2*Rf));
 if(!showNums)svg.setAttribute("class","hide-nums");else svg.removeAttribute("class");
 rotg=svg.appendChild(document.createElementNS("http://www.w3.org/2000/svg","g"));
 rotg.setAttribute("transform","rotate("+(rotStep*60)+","+rcX+","+rcY+")");

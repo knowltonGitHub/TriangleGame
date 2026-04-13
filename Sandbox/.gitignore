@@ -8,6 +8,10 @@ frames-from-video/
 Sandbox/
 
 # Generated screenshots and media
+*.png
+*.PNG
+*.mp4
+*.MP4
 *_tick-*.png
 *movie-*.mp4
 *movie-*.gif

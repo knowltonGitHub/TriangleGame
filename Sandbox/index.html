@@ -651,6 +651,14 @@ clearPathPreview();
 pushSnapshot(label||"set ON ids");
 R();telExpectFall();
 }
+function addOnByIds(ids,label){
+var idSet=new Set(ids||[]),i,k;
+truncateToHere();
+for(i=0;i<cells.length;i++){if(idSet.has(cells[i].id)){k=kKey(cells[i]);if(!on.has(k)){on.add(k);assignColorForKey(k);}}}
+clearPathPreview();
+pushSnapshot(label||"add ON ids");
+R();telExpectFall();
+}
 function doFallOneTick(){
 if(!atLatest()){tel("(Forward to end before new fall)");return false}
 if(on.size===0){tel("Fall: light some triangles first — Fall only moves lit pieces.");return false}
@@ -699,6 +707,7 @@ globalThis.__TG_AUTOMATION__={
 getBuild:function(){return PLAYGROUND_BUILD;},
 setContainer:function(which){applyContainerPreset(which==="V"?"V":"T");},
 setOnIds:function(ids){setOnByIds(Array.isArray(ids)?ids:[],"automation set ON ids");},
+addOnIds:function(ids){addOnByIds(Array.isArray(ids)?ids:[],"automation add ON ids");},
 fallTick:function(){return doFallOneTick();},
 currentOnIds:function(){return cells.filter(function(t){return on.has(kKey(t));}).map(function(t){return t.id;}).sort(function(a,b){return a-b});}
 };

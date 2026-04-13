@@ -1,0 +1,15 @@
+{
+  "mode": "repeatedDrops",
+  "runName": "repeat-id20",
+  "container": "V",
+  "litIds": [],
+  "dropId": 20,
+  "drops": 200,
+  "settleMaxTicks": 500,
+  "stopWhenSpawnBlocked": true,
+  "captureAfterSpawn": true,
+  "frameSeconds": 0.25,
+  "prefix": "id20",
+  "outputDir": "Sandbox/auto-runs/repeat-id20",
+  "browserChannel": "chrome"
+}

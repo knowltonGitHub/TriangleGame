@@ -72,8 +72,16 @@ async function main() {
 
   const scenario = JSON.parse(fs.readFileSync(scenarioPath, "utf8"));
   const container = scenario.container === "V" ? "V" : "T";
+  const mode = typeof scenario.mode === "string" ? scenario.mode : "fixedTicks";
   const litIds = Array.isArray(scenario.litIds) ? scenario.litIds : [];
   const ticks = Math.max(1, Number(scenario.ticks || 5));
+  const drops = Math.max(1, Number(scenario.drops || 5));
+  const settleMaxTicks = Math.max(1, Number(scenario.settleMaxTicks || 500));
+  const captureAfterSpawn = scenario.captureAfterSpawn !== false;
+  const stopWhenSpawnBlocked = scenario.stopWhenSpawnBlocked !== false;
+  const dropIds = Array.isArray(scenario.dropIds) && scenario.dropIds.length
+    ? scenario.dropIds.map((v) => Number(v)).filter((v) => Number.isFinite(v))
+    : [Number(scenario.dropId != null ? scenario.dropId : 20)];
   const frameSeconds = Math.max(0.05, Number(scenario.frameSeconds || 0.5));
   const browserChannel = typeof scenario.browserChannel === "string" ? scenario.browserChannel : "chrome";
 
@@ -86,6 +94,18 @@ async function main() {
   const page = await browser.newPage({ viewport: { width: 1360, height: 1500 } });
   await page.goto(pageUrl, { waitUntil: "domcontentloaded" });
   await page.waitForSelector("#w svg");
+  await page.evaluate(() => {
+    const sw = document.querySelector(".sw");
+    const w = document.getElementById("w");
+    if (sw) {
+      sw.style.maxHeight = "none";
+      sw.style.overflow = "visible";
+    }
+    if (w) {
+      w.style.overflow = "visible";
+      w.style.maxHeight = "none";
+    }
+  });
   await page.evaluate(
     (payload) => {
       if (!window.__TG_AUTOMATION__) throw new Error("__TG_AUTOMATION__ unavailable");
@@ -98,11 +118,47 @@ async function main() {
   const build = await page.evaluate(() => window.__TG_AUTOMATION__.getBuild());
 
   const prefix = (scenario.prefix || ("auto_b" + build)).replace(/[^a-zA-Z0-9_-]+/g, "").slice(0, 32) || ("auto_b" + build);
-  for (let i = 1; i <= ticks; i++) {
-    await page.evaluate(() => window.__TG_AUTOMATION__.fallTick());
-    await page.waitForTimeout(80);
-    const pngName = `${prefix}_tick-${pad(i, 4)}.png`;
+  let frameCount = 0;
+  async function snap() {
+    frameCount += 1;
+    const pngName = `${prefix}_tick-${pad(frameCount, 4)}.png`;
     await page.locator("#w").screenshot({ path: path.join(outDir, pngName) });
+  }
+
+  if (mode === "repeatedDrops") {
+    let completedDrops = 0;
+    for (let d = 0; d < drops; d++) {
+      const dropId = dropIds[d % dropIds.length];
+      const beforeCount = await page.evaluate(() => window.__TG_AUTOMATION__.currentOnIds().length);
+      await page.evaluate((id) => window.__TG_AUTOMATION__.addOnIds([id]), dropId);
+      await page.waitForTimeout(60);
+      const afterCount = await page.evaluate(() => window.__TG_AUTOMATION__.currentOnIds().length);
+      if (stopWhenSpawnBlocked && afterCount <= beforeCount) {
+        break;
+      }
+      completedDrops += 1;
+      if (captureAfterSpawn) await snap();
+      let settled = false;
+      for (let t = 0; t < settleMaxTicks; t++) {
+        const moved = await page.evaluate(() => window.__TG_AUTOMATION__.fallTick());
+        await page.waitForTimeout(60);
+        await snap();
+        if (!moved) {
+          settled = true;
+          break;
+        }
+      }
+      if (!settled) {
+        throw new Error(`Scenario did not settle within ${settleMaxTicks} ticks for drop ${d + 1}`);
+      }
+    }
+    scenario._completedDrops = completedDrops;
+  } else {
+    for (let i = 1; i <= ticks; i++) {
+      await page.evaluate(() => window.__TG_AUTOMATION__.fallTick());
+      await page.waitForTimeout(80);
+      await snap();
+    }
   }
   await browser.close();
 
@@ -121,13 +177,16 @@ async function main() {
     ok: true,
     scenarioPath,
     outputDir: outDir,
-    frames: ticks,
+    frames: frameCount,
     mp4,
     gif,
     build,
     prefix,
     litIds,
     container,
+    mode,
+    drops: mode === "repeatedDrops" ? (scenario._completedDrops != null ? scenario._completedDrops : drops) : undefined,
+    dropIds: mode === "repeatedDrops" ? dropIds : undefined,
   };
   process.stdout.write(JSON.stringify(result, null, 2) + "\n");
 }

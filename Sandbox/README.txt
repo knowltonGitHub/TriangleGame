@@ -40,6 +40,9 @@ run-tick-scenario.cjs + scenarios/demo-run.json
       node Sandbox/media-bridge.cjs
   - Direct CLI example:
       node Sandbox/run-tick-scenario.cjs --scenario Sandbox/scenarios/demo-run.json
+  - Repeated gameplay-style drops (same spawn ID, settle each drop, auto movie):
+      node Sandbox/run-tick-scenario.cjs --scenario Sandbox/scenarios/repeated-id20.json
+  - For repeated drops, runner stops early when spawn can no longer be added (`stopWhenSpawnBlocked: true`).
 
 From Cursor / VS Code:
   - Ctrl+Shift+P (Command Palette) -> "Tasks: Run Task"

@@ -36,16 +36,21 @@ input[type=text]{background:#0d1117;border:1px solid #30363d;color:var(--t);padd
 <button type="button" id="clear">Clear shape</button>
 <button type="button" id="fill">Fill (click seed)</button>
 <button type="button" id="save">Save JSON</button>
+<button type="button" id="rotCCW" title="Rotate editor preview 60° CCW">Rotate 60 CCW</button>
+<button type="button" id="rotCW" title="Rotate editor preview 60° CW">Rotate 60 CW</button>
+<button type="button" id="rotReset" title="Reset editor preview orientation">Reset orientation</button>
+<button type="button" id="viewMode" title="Toggle between playground-like and full mesh view">View: Playground</button>
 <label class="fl">Load<input type="file" id="load" accept="application/json,.json"/></label>
 </div>
 <div class="row">
 <label>Download name <input type="text" id="fname" placeholder="container.json" value="container.json"/></label>
 </div>
+<div class="row" id="rotLab" style="font-size:.78rem;color:var(--m)">Editor orientation: 0 deg CW (step 0 of 6)</div>
 <div class="row" id="meshLab" style="font-size:.78rem;color:var(--m)"></div>
 <div class="sw" id="w"></div>
 <script>
 (function(){
-var EDITOR_BUILD=3;
+var EDITOR_BUILD=7;
 var M=Math.sqrt(3);
 var SIDE,ORIGIN_X,ORIGIN_Y,GRID_ROWS,GRID_COLS;
 function H(a){return a*M/2}
@@ -82,18 +87,68 @@ function buildAllCells(){
   }
   return cells
 }
-var cells,cellMap,neighMap;
+var cells,cellMap,neighMap,guideKeys;
+function distToSeg(px,py,ax,ay,bx,by){
+  var vx=bx-ax,vy=by-ay,wx=px-ax,wy=py-ay,den=vx*vx+vy*vy||1e-30,c=Math.max(0,Math.min(1,(wx*vx+wy*vy)/den)),qx=ax+c*vx,qy=ay+c*vy;
+  return Math.hypot(px-qx,py-qy)
+}
+function pointInPolygon(x,y,poly){
+  var w=0,n=poly.length,i,a,b,c;
+  for(i=0;i<n;i++){
+    a=poly[i];b=poly[(i+1)%n];
+    c=(b[0]-a[0])*(y-a[1])-(x-a[0])*(b[1]-a[1]);
+    if(a[1]<=y){if(b[1]>y&&c>0)w++}else{if(b[1]<=y&&c<0)w--}
+  }
+  return w!==0
+}
+function pointInPolygonInclusive(x,y,poly,eps){
+  var i,d,n=poly.length;
+  if(pointInPolygon(x,y,poly))return true;
+  for(i=0;i<n;i++){d=distToSeg(x,y,poly[i][0],poly[i][1],poly[(i+1)%n][0],poly[(i+1)%n][1]);if(d<=eps)return true}
+  return false
+}
+function defaultGuidePolygon(){
+  var v,i,jj,ii,kind,minX=1e30,maxX=-1e30,minY=1e30,maxY=-1e30,cx,cy,spanX,spanY,side,half;
+  for(jj=0;jj<GRID_ROWS;jj++)for(ii=0;ii<GRID_COLS;ii++)for(kind=0;kind<2;kind++){
+    v=triVertsFromCell(ii,jj,kind,SIDE,ORIGIN_X,ORIGIN_Y);
+    for(i=0;i<3;i++){
+      if(v[i].x<minX)minX=v[i].x;
+      if(v[i].x>maxX)maxX=v[i].x;
+      if(v[i].y<minY)minY=v[i].y;
+      if(v[i].y>maxY)maxY=v[i].y;
+    }
+  }
+  cx=(minX+maxX)/2;cy=(minY+maxY)/2;
+  spanX=maxX-minX;spanY=maxY-minY;
+  side=Math.min(spanX,spanY)*0.9;
+  half=side/2;
+  return[[cx-half,cy-half],[cx+half,cy-half],[cx+half,cy+half],[cx-half,cy+half]]
+}
+function buildGuideKeys(){
+  var poly=defaultGuidePolygon(),out=new Set(),i,k,v,n,inside;
+  for(i=0;i<cells.length;i++){
+    k=kKey(cells[i]);
+    v=triVertsFromCell(cells[i].ti,cells[i].tj,cells[i].kind,SIDE,ORIGIN_X,ORIGIN_Y);
+    inside=true;
+    for(n=0;n<3;n++)if(!pointInPolygonInclusive(v[n].x,v[n].y,poly,0.75)){inside=false;break}
+    if(inside)out.add(k)
+  }
+  return out
+}
 function setMesh(s,ox,oy,gr,gc){
   SIDE=s;ORIGIN_X=ox;ORIGIN_Y=oy;GRID_ROWS=gr;GRID_COLS=gc;
   cells=buildAllCells();
   cellMap={};
   for(var ci=0;ci<cells.length;ci++)cellMap[kKey(cells[ci])]=cells[ci];
-  neighMap=buildNeighborMap(cells,SIDE,ORIGIN_X,ORIGIN_Y)
+  neighMap=buildNeighborMap(cells,SIDE,ORIGIN_X,ORIGIN_Y);
+  guideKeys=buildGuideKeys()
 }
 setMesh(34,24,24,22,26);
 var onKeys=new Set();
 var undoStack=[];
 var fillMode=false;
+var rotStep=0;
+var playgroundView=true;
 var ptrDown=false,ptrStartX,ptrStartY,startKey,dragPaint=false,pushedStrokeUndo=false;
 var lastPaintKey=null;
 function snap(){return JSON.stringify(Array.from(onKeys).sort())}
@@ -101,24 +156,39 @@ function applySnap(s){onKeys=new Set(JSON.parse(s));R()}
 function pushUndo(){undoStack.push(snap());if(undoStack.length>80)undoStack.shift();syncUndoBtn()}
 function doUndo(){if(undoStack.length===0)return;var prev=undoStack.pop();applySnap(prev)}
 function syncUndoBtn(){var b=document.getElementById("undo");if(b)b.disabled=undoStack.length===0}
+function syncRotLab(){var el=document.getElementById("rotLab");if(el)el.textContent="Editor orientation: "+(rotStep*60)+" deg CW (step "+rotStep+" of 6)"}
+function drawCellsForView(){
+  if(!playgroundView)return cells;
+  return cells.filter(function(t){
+    var k=kKey(t);
+    return guideKeys.has(k)||onKeys.has(k)
+  })
+}
+function syncViewBtn(){
+  var b=document.getElementById("viewMode");
+  if(!b)return;
+  b.textContent=playgroundView?"View: Playground":"View: Full mesh";
+}
 function R(){
-  var i,k,tr,path,txt,g,svg,rcX,rcY,n,dx,dy,d,Rm,Rcell,byR,rk,rn,minx,sumy,avgy,j,v0,sub,dOff="",dOn="",oxL=ORIGIN_X,oyL=ORIGIN_Y,a=SIDE;
-  n=cells.length;
-  if(!n){document.getElementById("w").innerHTML="<p class=h style=color:var(--m)>No mesh</p>";var lab0=document.getElementById("meshLab");if(lab0)lab0.textContent="Mesh: side="+SIDE+" origin=("+ORIGIN_X+","+ORIGIN_Y+") grid="+GRID_COLS+"×"+GRID_ROWS+" · 0 cells";syncUndoBtn();return}
-  rcX=0;rcY=0;for(i=0;i<n;i++){tr=cells[i];rcX+=tr.cx;rcY+=tr.cy}
-  rcX/=n;rcY/=n;Rcell=a/Math.sqrt(3);Rm=0;for(i=0;i<n;i++){tr=cells[i];dx=tr.cx-rcX;dy=tr.cy-rcY;d=Math.sqrt(dx*dx+dy*dy)+Rcell;if(d>Rm)Rm=d}Rm+=Math.max(8,a*0.22);
+  var i,k,tr,path,txt,g,svg,rotg,rcX,rcY,n,dx,dy,d,Rm,Rcell,byR,rk,rn,minx,sumy,avgy,j,v0,sub,dOff="",dOn="",oxL=ORIGIN_X,oyL=ORIGIN_Y,a=SIDE,drawCells=drawCellsForView();
+  n=drawCells.length;
+  if(!cells.length){document.getElementById("w").innerHTML="<p class=h style=color:var(--m)>No mesh</p>";var lab0=document.getElementById("meshLab");if(lab0)lab0.textContent="Mesh: side="+SIDE+" origin=("+ORIGIN_X+","+ORIGIN_Y+") grid="+GRID_COLS+"×"+GRID_ROWS+" · 0 cells";syncUndoBtn();syncViewBtn();return}
+  rcX=0;rcY=0;for(i=0;i<n;i++){tr=drawCells[i];rcX+=tr.cx;rcY+=tr.cy}
+  rcX/=n;rcY/=n;Rcell=a/Math.sqrt(3);Rm=0;for(i=0;i<n;i++){tr=drawCells[i];dx=tr.cx-rcX;dy=tr.cy-rcY;d=Math.sqrt(dx*dx+dy*dy)+Rcell;if(d>Rm)Rm=d}Rm+=Math.max(8,a*0.22);
   svg=document.createElementNS("http://www.w3.org/2000/svg","svg");
   svg.setAttribute("width",String(2*Rm));svg.setAttribute("height",String(2*Rm));
   svg.setAttribute("viewBox",(rcX-Rm)+" "+(rcY-Rm)+" "+(2*Rm)+" "+(2*Rm));
-  g=svg.appendChild(document.createElementNS("http://www.w3.org/2000/svg","g"));
-  for(i=0;i<cells.length;i++){tr=cells[i];k=kKey(tr);v0=triVertsFromCell(tr.ti,tr.tj,tr.kind,a,oxL,oyL);sub=pathDFromVerts(v0);if(onKeys.has(k))dOn+=sub;else dOff+=sub}
+  rotg=svg.appendChild(document.createElementNS("http://www.w3.org/2000/svg","g"));
+  rotg.setAttribute("transform","rotate("+(rotStep*60)+","+rcX+","+rcY+")");
+  g=rotg.appendChild(document.createElementNS("http://www.w3.org/2000/svg","g"));
+  for(i=0;i<drawCells.length;i++){tr=drawCells[i];k=kKey(tr);v0=triVertsFromCell(tr.ti,tr.tj,tr.kind,a,oxL,oyL);sub=pathDFromVerts(v0);if(onKeys.has(k))dOn+=sub;else dOff+=sub}
   if(dOff.length){path=g.appendChild(document.createElementNS("http://www.w3.org/2000/svg","path"));path.setAttribute("class","meshOff");path.setAttribute("d",dOff);path.setAttribute("pointer-events","none")}
   if(dOn.length){path=g.appendChild(document.createElementNS("http://www.w3.org/2000/svg","path"));path.setAttribute("class","meshOn");path.setAttribute("d",dOn);path.setAttribute("pointer-events","none")}
   path=g.appendChild(document.createElementNS("http://www.w3.org/2000/svg","path"));
   path.setAttribute("class","tessGrid");
-  path.setAttribute("d",tessGridPathFromCells(cells,a,oxL,oyL));
-  for(i=0;i<cells.length;i++){
-    tr=cells[i];k=kKey(tr);
+  path.setAttribute("d",tessGridPathFromCells(drawCells,a,oxL,oyL));
+  for(i=0;i<drawCells.length;i++){
+    tr=drawCells[i];k=kKey(tr);
     path=g.appendChild(document.createElementNS("http://www.w3.org/2000/svg","path"));
     path.setAttribute("d",pathDFromVerts(triVertsFromCell(tr.ti,tr.tj,tr.kind,a,oxL,oyL)));path.setAttribute("class","hit");
     (function(kk){
@@ -127,14 +197,16 @@ function R(){
       path.addEventListener("pointerup",function(ev){onCellPointerUp(kk,ev)});
     })(k);
   }
-  byR={};for(i=0;i<cells.length;i++){tr=cells[i];if(!byR[tr.tj])byR[tr.tj]=[];byR[tr.tj].push(tr)}
+  byR={};for(i=0;i<drawCells.length;i++){tr=drawCells[i];if(!byR[tr.tj])byR[tr.tj]=[];byR[tr.tj].push(tr)}
   rk=Object.keys(byR).map(Number).sort(function(a,b){return a-b});
   for(j=0;j<rk.length;j++){rn=rk[j];tr=byR[rn];minx=tr[0].cx;sumy=0;for(i=0;i<tr.length;i++){if(tr[i].cx<minx)minx=tr[i].cx;sumy+=tr[i].cy}avgy=sumy/tr.length;txt=g.appendChild(document.createElementNS("http://www.w3.org/2000/svg","text"));txt.setAttribute("x",String(minx-a*0.55));txt.setAttribute("y",String(avgy));txt.setAttribute("class","rowR");txt.setAttribute("fill","#8ab4f8");txt.setAttribute("font-size","10");txt.textContent="r"+rn}
   document.getElementById("w").innerHTML="";
   document.getElementById("w").appendChild(svg);
   var lab=document.getElementById("meshLab");
-  if(lab)lab.textContent="Mesh: side="+SIDE+" origin=("+ORIGIN_X+","+ORIGIN_Y+") grid="+GRID_COLS+"×"+GRID_ROWS+" rows · "+onKeys.size+" cell(s) ON";
+  if(lab)lab.textContent="Mesh: side="+SIDE+" origin=("+ORIGIN_X+","+ORIGIN_Y+") grid="+GRID_COLS+"×"+GRID_ROWS+" rows · "+onKeys.size+" cell(s) ON · view="+(playgroundView?"playground":"full");
   syncUndoBtn();
+  syncRotLab();
+  syncViewBtn();
 }
 function onCellPointerDown(k,ev){
   ptrDown=true;ptrStartX=ev.clientX;ptrStartY=ev.clientY;startKey=k;dragPaint=false;pushedStrokeUndo=false;lastPaintKey=null;
@@ -207,6 +279,10 @@ function doFillFromSeed(seedK){
 document.getElementById("undo").onclick=function(){doUndo()};
 document.getElementById("clear").onclick=function(){if(onKeys.size===0)return;pushUndo();onKeys=new Set();R()};
 document.getElementById("fill").onclick=function(){fillMode=!fillMode;this.textContent=fillMode?"Click empty cell to fill (edge-connected)":"Fill (click seed)"};
+document.getElementById("rotCW").onclick=function(){rotStep=(rotStep+1)%6;R()};
+document.getElementById("rotCCW").onclick=function(){rotStep=(rotStep+5)%6;R()};
+document.getElementById("rotReset").onclick=function(){rotStep=0;R()};
+document.getElementById("viewMode").onclick=function(){playgroundView=!playgroundView;R()};
 document.getElementById("save").onclick=function(){
   var name=(document.getElementById("fname").value||"container.json").trim()||"container.json";
   var payload={

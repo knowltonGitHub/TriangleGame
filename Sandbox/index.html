@@ -15,7 +15,7 @@ h1{font-size:1.1rem;margin:0 0 8px}
 button,.fl{background:#3c4043;color:var(--t);border:1px solid var(--s);padding:8px 12px;border-radius:8px;cursor:pointer;font-size:.85rem}
 button:disabled{opacity:.45;cursor:not-allowed}
 .fl input{display:none}
-.sw{background:var(--p);border-radius:12px;padding:2px;overflow:auto;max-width:100%;border:1px solid #3c4043;max-height:min(52vh,720px)}
+.sw{background:var(--p);border-radius:12px;padding:2px;overflow:visible;max-width:100%;border:1px solid #3c4043;max-height:none}
 #w{display:flex;flex-direction:column;align-items:stretch}
 #w>svg{align-self:center;flex-shrink:0}
 .board-build-banner{font-size:1.15rem;font-weight:800;letter-spacing:.08em;color:var(--t);padding:10px 14px 8px;text-align:left;background:var(--bg);border-bottom:2px solid #4ade8044;position:sticky;top:0;z-index:3;pointer-events:none;margin:0;border-radius:10px 10px 0 0;flex-shrink:0}
@@ -86,7 +86,7 @@ pre.o{margin-top:8px;padding:12px;background:#0d1117;border-radius:8px;font-size
 <pre class="o" id="o" hidden></pre>
 <script>
 (function(){
-var PLAYGROUND_BUILD=60;
+var PLAYGROUND_BUILD=61;
 function applyPlaygroundBuildLabel(){var s="build "+PLAYGROUND_BUILD,e=document.getElementById("pgVer"),t=document.querySelector("title"),bb=document.getElementById("boardBuildBanner");if(e)e.textContent=s;if(t)t.textContent="Triangle playground · "+s;if(bb)bb.textContent="BUILD "+PLAYGROUND_BUILD}
 function boardBuildBannerNode(){var b=document.createElement("div");b.id="boardBuildBanner";b.className="board-build-banner";b.textContent="BUILD "+PLAYGROUND_BUILD;return b}
 function cloneLayoutT(){return{side:34,originX:24,originY:24,gridRows:22,gridCols:26,topBar:{minX:120,maxX:780,minY:40,maxY:220},stem:{minX:330,maxX:570,minY:220,maxY:640}}}

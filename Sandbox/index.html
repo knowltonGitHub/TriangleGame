@@ -86,7 +86,7 @@ pre.o{margin-top:8px;padding:12px;background:#0d1117;border-radius:8px;font-size
 <pre class="o" id="o" hidden></pre>
 <script>
 (function(){
-var PLAYGROUND_BUILD=61;
+var PLAYGROUND_BUILD=62;
 function applyPlaygroundBuildLabel(){var s="build "+PLAYGROUND_BUILD,e=document.getElementById("pgVer"),t=document.querySelector("title"),bb=document.getElementById("boardBuildBanner");if(e)e.textContent=s;if(t)t.textContent="Triangle playground · "+s;if(bb)bb.textContent="BUILD "+PLAYGROUND_BUILD}
 function boardBuildBannerNode(){var b=document.createElement("div");b.id="boardBuildBanner";b.className="board-build-banner";b.textContent="BUILD "+PLAYGROUND_BUILD;return b}
 function cloneLayoutT(){return{side:34,originX:24,originY:24,gridRows:22,gridCols:26,topBar:{minX:120,maxX:780,minY:40,maxY:220},stem:{minX:330,maxX:570,minY:220,maxY:640}}}
@@ -281,8 +281,9 @@ for(i=0;i<3;i++)for(j=0;j<poly.length;j++){d=distToSeg(v[i].x,v[i].y,poly[j][0],
 return minD;
 }
 function neighborFallOnce(onSet){
-var g=grav(rotStep),eps=1e-6,nx=new Set(onSet),keys=Array.from(nx),i,j,ka,t,nb,nk,o,dx,dy,along,cross,ac,cand,bCross,bAlong,cl=new Set(),moves=[],ci,rightHat,bLat,rd,wallMode,score,bScore,forced,nextForced,nxTmp;
+var g=grav(rotStep),eps=1e-6,nx=new Set(onSet),keys=Array.from(nx),i,j,ka,t,nb,nk,o,dx,dy,along,cross,ac,cand,bCross,bAlong,cl=new Set(),moves=[],ci,rightHat,bLat,rd,wallMode,score,bScore,forced,nextForced,nxTmp,bottomBoundaryCy=-1e30;
 rightHat={gx:g.gy,gy:-g.gx};
+for(ci=0;ci<cells.length;ci++){if(cellBoundary[kKey(cells[ci])]&&cells[ci].cy>bottomBoundaryCy)bottomBoundaryCy=cells[ci].cy;}
 keys.sort(function(k1,k2){return cellMap[k1].cy-cellMap[k2].cy});
 for(i=0;i<keys.length;i++){
 ka=keys[i];if(!nx.has(ka))continue;t=cellMap[ka];
@@ -331,6 +332,16 @@ rd=dx*rightHat.gx+dy*rightHat.gy;
 if(cand===null||rd<bLat-eps||(Math.abs(rd-bLat)<1e-9&&nk<cand)){cand=nk;bLat=rd;}
 }
 if(cand!==null&&!cl.has(cand)){nx.delete(ka);nx.add(cand);cl.add(cand);moves.push({f:ka,t:cand,phase:"interior"});}
+if(cand===null&&t.kind===0&&cellBoundary[ka]&&t.cy>=bottomBoundaryCy-a*0.75){
+cand=null;var bestCy=-1e30,bestAlong=-1e30,bestLat=1e30;
+for(j=0;j<nb.length;j++){
+nk=nb[j];if(nx.has(nk))continue;o=cellMap[nk];if(!o||o.kind===t.kind)continue;if(!cellBoundary[nk])continue;
+dx=o.cx-t.cx;dy=o.cy-t.cy;along=dx*g.gx+dy*g.gy;if(along<-(a*0.22))continue;
+rd=dx*rightHat.gx+dy*rightHat.gy;
+if(cand===null||o.cy>bestCy+eps||(Math.abs(o.cy-bestCy)<1e-9&&(along>bestAlong+eps||(Math.abs(along-bestAlong)<1e-9&&(rd<bestLat-eps||(Math.abs(rd-bestLat)<1e-9&&nk<cand)))))){cand=nk;bestCy=o.cy;bestAlong=along;bestLat=rd;}
+}
+if(cand!==null&&!cl.has(cand)){nx.delete(ka);nx.add(cand);cl.add(cand);moves.push({f:ka,t:cand,phase:"bottomFlip"});}
+}
 }
 return{next:nx,moves:moves};
 }
@@ -340,7 +351,7 @@ if(!tf||!tt)return"?";
 if(phase==="lane"){adj=(neigh[fk]||[]).indexOf(tk)>=0;return adj?"slide":"skip";}
 if(phase==="slideLocal")return"slide";
 if(phase==="wallSlideComposite")return"slide";
-if(phase==="pivotRotate"||phase==="pivot"||phase==="layFlat"||phase==="wallSlide"||phase==="boundaryTip"||phase==="wall"||phase==="interior")return"rotation";
+if(phase==="pivotRotate"||phase==="pivot"||phase==="layFlat"||phase==="wallSlide"||phase==="boundaryTip"||phase==="wall"||phase==="interior"||phase==="bottomFlip")return"rotation";
 return"?";
 }
 function neighborWhyLine(fk,nk,chosenTk,phase,g,t,rightHat,eps,beforeOn){
@@ -364,6 +375,7 @@ return"lane: not min |cross| tier / min along — #"+chId+" wins";
 if(along<=eps)return"tip (flip kind): not downhill";
 if(phase==="wallSlideComposite")return"composite wall slide: intermediate pivot omitted; #"+chId+" is the landed slide state";
 if(phase==="pivotRotate")return"forced boundary pivot: share contact vertex on container wall + clockwise/downhill tie-break";
+if(phase==="bottomFlip")return"bottom edge case: down-pointy boundary triangle allows terminal flip near container floor";
 if(phase==="pivot"){
 if(sharedEdgeWallAttachScore(fk,nk)<=0)return"flip: shared edge not on container wall (no wall attach — weak vs #"+chId+")";
 return"flip: wall attach — lost tie to #"+chId+" (higher wall score or leftmost)";
@@ -395,6 +407,7 @@ if(ph==="pivotRotate")tel("    story: #"+tf.id+" finds wall-contact pivot, no va
 else if(ph==="slideLocal")tel("    story: #"+tf.id+" keeps orientation and performs a local slide into #"+tt.id);
 else if(ph==="wallSlideComposite")tel("    story: #"+tf.id+" does a wall-slide macro move (tip then settle) and lands at #"+tt.id);
 else if(ph==="lane")tel("    story: #"+tf.id+" takes a same-kind lane move to #"+tt.id);
+else if(ph==="bottomFlip")tel("    story: #"+tf.id+" hits bottom boundary as down-pointy and uses terminal flip into #"+tt.id);
 else if(ph==="wall"||ph==="interior"||ph==="boundaryTip"||ph==="wallSlide"||ph==="pivot"||ph==="layFlat")tel("    story: #"+tf.id+" rotates into #"+tt.id+" to follow boundary/gravity constraints");
 nb=neigh[fk]||[];
 tel("    surrounding (id): "+nb.map(function(k){return cellMap[k]?cellMap[k].id:"?"}).join(", "));

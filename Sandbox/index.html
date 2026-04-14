@@ -14,6 +14,8 @@ h1{font-size:1.1rem;margin:0 0 8px}
 .tb{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:8px;padding:10px 14px;background:var(--p);border-radius:10px;max-width:min(100%,980px)}
 button,.fl{background:#3c4043;color:var(--t);border:1px solid var(--s);padding:8px 12px;border-radius:8px;cursor:pointer;font-size:.85rem}
 button:disabled{opacity:.45;cursor:not-allowed}
+.proofBtn{background:#2f3f56;border-color:#5b7aa3}
+.proofBtn:hover{background:#39506d}
 .fl input{display:none}
 .sw{background:var(--p);border-radius:12px;padding:2px;overflow:visible;max-width:100%;border:1px solid #3c4043;max-height:none}
 #w{display:flex;flex-direction:column;align-items:stretch}
@@ -44,6 +46,9 @@ pre.o{margin-top:8px;padding:12px;background:#0d1117;border-radius:8px;font-size
 .bridgeBadge.off .bridgeDot{background:#ef4444;box-shadow:0 0 0 2px rgba(239,68,68,.2)}
 #histLab{font-size:.8rem;margin:4px 0 8px;color:var(--m)}
 .pg-ver{font-size:.72rem;color:#8ab4f8;font-weight:700;margin-left:10px;white-space:nowrap}
+.chatRow{display:flex;gap:8px;max-width:min(100%,980px);width:100%;margin:6px 0 8px}
+.chatInp{flex:1;background:#1f232a;color:var(--t);border:1px solid #5f6368;border-radius:8px;padding:9px 10px;font-size:.86rem}
+.chatHint{font-size:.78rem;color:var(--m);max-width:min(100%,980px);width:100%;margin:0 0 6px}
 </style>
 </head>
 <body>
@@ -65,6 +70,7 @@ pre.o{margin-top:8px;padding:12px;background:#0d1117;border-radius:8px;font-size
 <button type="button" id="mkMedia" title="Build MP4/GIF from current tick PNG files (requires local bridge)">Make MP4/GIF</button>
 <button type="button" id="xFrames" title="Extract PNG frames from an MP4 (requires local bridge)">MP4-&gt;PNG</button>
 <button type="button" id="runScenario" title="Run headless tick scenario and auto-build MP4/GIF (requires local bridge)">Run scenario</button>
+<button type="button" id="proofDemo" class="proofBtn" title="Run short scripted proof animation and print PASS/FAIL in telemetry">Proof demo</button>
 <span id="bridgeStat" class="bridgeBadge off" title="Local media bridge status"><span class="bridgeDot"></span><span id="bridgeStatText">Bridge: offline</span></span>
 <button type="button" id="bridgeRefresh" title="Re-check bridge connection">Check bridge</button>
 <button type="button" id="pp" title="Show triangles the engine expects pieces to visit if you Settle (same rules as Fall) — light yellow">Preview path</button>
@@ -77,6 +83,11 @@ pre.o{margin-top:8px;padding:12px;background:#0d1117;border-radius:8px;font-size
 <button type="button" id="cp">Copy JSON</button>
 <label class="fl">Load<input type="file" id="ld" accept="application/json,.json" title="Playground save or editor containerCellMask"/></label>
 </div>
+<div class="chatRow">
+<input id="chatCmd" class="chatInp" type="text" placeholder='Try: "light triangle 20 and fall 2 ticks"'/>
+<button type="button" id="chatSend" title="Run command from text">Run command</button>
+</div>
+<p class="chatHint">Command box supports: <code>light triangle 20</code>, <code>fall 2 ticks</code>, <code>light triangle 20 and fall 2 ticks</code>, <code>settle</code>, <code>all off</code>.</p>
 <p class="h" id="containerShapeLab" style="margin:0 0 4px">Container: (loading…)</p>
 <p class="h" id="rl" style="margin:0 0 4px">Container rotation: 0 deg CW (step 0 of 6)</p>
 <p id="histLab">History: 0 / 0</p>
@@ -86,7 +97,7 @@ pre.o{margin-top:8px;padding:12px;background:#0d1117;border-radius:8px;font-size
 <pre class="o" id="o" hidden></pre>
 <script>
 (function(){
-var PLAYGROUND_BUILD=62;
+var PLAYGROUND_BUILD=90;
 function applyPlaygroundBuildLabel(){var s="build "+PLAYGROUND_BUILD,e=document.getElementById("pgVer"),t=document.querySelector("title"),bb=document.getElementById("boardBuildBanner");if(e)e.textContent=s;if(t)t.textContent="Triangle playground · "+s;if(bb)bb.textContent="BUILD "+PLAYGROUND_BUILD}
 function boardBuildBannerNode(){var b=document.createElement("div");b.id="boardBuildBanner";b.className="board-build-banner";b.textContent="BUILD "+PLAYGROUND_BUILD;return b}
 function cloneLayoutT(){return{side:34,originX:24,originY:24,gridRows:22,gridCols:26,topBar:{minX:120,maxX:780,minY:40,maxY:220},stem:{minX:330,maxX:570,minY:220,maxY:640}}}
@@ -128,6 +139,7 @@ var cells,a,cellMap,neigh={},cellBoundary={},vertexNeigh={};
 rebuildWorldFromLayout(layoutSpec);
 var HEADLESS_SIM=typeof globalThis!=="undefined"&&globalThis.__TG_HEADLESS_SIM__===true;
 function fallCrashDemoFromUrl(){try{if(typeof location==="undefined"||!location.search)return false;return new URLSearchParams(location.search).get("crash")==="1"}catch(e){return false}}
+function dispatchPollDisabledFromUrl(){try{if(typeof location==="undefined"||!location.search)return false;return new URLSearchParams(location.search).get("nodispatch")==="1"}catch(e){return false}}
 function grav(r){var rad=r*Math.PI/3;return{gx:Math.sin(rad),gy:Math.cos(rad)}}
 function wallEpsForContainerPivot(){return Math.max(5.5,a*0.17)}
 function vertexTouchesContainerWallPx(px,py,poly,wallEps){
@@ -182,11 +194,14 @@ if(!sv.length||!contacts||!contacts.length)return false;
 for(i=0;i<sv.length;i++)for(j=0;j<contacts.length;j++)if(vertsNearlySame(sv[i],contacts[j],tol))return true;
 return false;
 }
-function fsmWallModeMove(ka,nx,g,rightHat,eps){
-var t=cellMap[ka],nb,j,nk,o,dx,dy,along,cross,ac,cand=null,bCross=1e30,bAlong=1e30,vnb,score,bScore=-1e30,bAlong2=-1e30,bLat=0,rd,nearWall,sideSign,centerX;
-if(!t||t.tj<8)return null;
+function wallModeCandidateMap(ka,nx,g,rightHat,eps){
+var t=cellMap[ka],nb,j,nk,o,dx,dy,along,cross,ac,cand=null,bCross=1e30,bAlong=1e30,vnb,score,bScore=-1e30,bAlong2=-1e30,bLat=0,rd,nearWall,sideSign,centerX,bottomCy,preferRightBottom;
+if(!t||t.tj<8)return{slideLocal:null,pivotRotate:null};
 centerX=containerCenterX();
 sideSign=t.cx>=centerX?1:-1;
+bottomCy=bottomBoundaryMaxCy();
+preferRightBottom=t.kind===0&&cellBoundary[ka]&&t.cy>=bottomCy-a*0.75;
+if(preferRightBottom)sideSign=1;
 nb=neigh[ka]||[];
 for(j=0;j<nb.length;j++){
 nk=nb[j];if(nx.has(nk))continue;o=cellMap[nk];if(!o||o.kind!==t.kind)continue;
@@ -194,16 +209,21 @@ dx=o.cx-t.cx;dy=o.cy-t.cy;along=dx*g.gx+dy*g.gy;if(along<=eps)continue;
 cross=dx*(-g.gy)+dy*g.gx;ac=Math.abs(cross);
 if(cand===null||ac<bCross-eps||(Math.abs(ac-bCross)<1e-9&&along<bAlong-eps)||(Math.abs(ac-bCross)<1e-9&&Math.abs(along-bAlong)<1e-9&&nk<cand)){cand=nk;bCross=ac;bAlong=along;}
 }
-if(cand!==null)return{to:cand,phase:"slideLocal"};
+var slideLocalCand=cand;
 vnb=vertexNeigh[ka]||[];cand=null;
 for(j=0;j<vnb.length;j++){
 nk=vnb[j];if(nx.has(nk))continue;o=cellMap[nk];if(!o||o.kind===t.kind)continue;
 dx=o.cx-t.cx;dy=o.cy-t.cy;along=dx*g.gx+dy*g.gy;if(along<-(a*0.15))continue;
 rd=dx*rightHat.gx+dy*rightHat.gy;
-score=(triangleHasVertexNearContainerWall(o)?10000:0)+(cellBoundary[nk]?2000:0)+(along*10)+(sideSign*rd*2);
+score=(triangleHasVertexNearContainerWall(o)?10000:0)+(cellBoundary[nk]?2000:0)+(along*10)+((preferRightBottom?1:sideSign)*rd*2);
 if(cand===null||score>bScore+eps||(Math.abs(score-bScore)<1e-9&&(along>bAlong2+eps||(Math.abs(along-bAlong2)<1e-9&&((sideSign<0&&rd<bLat-eps)||(sideSign>0&&rd>bLat+eps)||(Math.abs(rd-bLat)<1e-9&&nk<cand)))))){cand=nk;bScore=score;bAlong2=along;bLat=rd;}
 }
-if(cand!==null)return{to:cand,phase:"pivotRotate"};
+return{slideLocal:slideLocalCand,pivotRotate:cand};
+}
+function fsmWallModeMove(ka,nx,g,rightHat,eps){
+var m=wallModeCandidateMap(ka,nx,g,rightHat,eps);
+if(m.slideLocal!==null)return{to:m.slideLocal,phase:"slideLocal"};
+if(m.pivotRotate!==null)return{to:m.pivotRotate,phase:"pivotRotate"};
 return null;
 }
 function tryBoundaryForcedLocalDecision(ka,nx,g,rightHat,eps){
@@ -273,6 +293,11 @@ if(poly&&poly.length){sum=0;for(i=0;i<poly.length;i++)sum+=poly[i][0];return sum
 if(layoutSpec.vShape&&typeof layoutSpec.vShape.centerX==="number")return layoutSpec.vShape.centerX;
 return (layoutSpec.topBar.minX+layoutSpec.topBar.maxX)/2;
 }
+function bottomBoundaryMaxCy(){
+var i,m=-1e30,k;
+for(i=0;i<cells.length;i++){k=kKey(cells[i]);if(cellBoundary[k]&&cells[i].cy>m)m=cells[i].cy;}
+return m;
+}
 function cellMinDistToContainerWall(ka){
 var poly=layoutSpec.containerPolygon,v,i,j,d,minD=1e30;
 if(!poly||poly.length<3||!cellMap[ka])return 1e30;
@@ -280,67 +305,130 @@ v=vertsForCellMap(cellMap[ka]);
 for(i=0;i<3;i++)for(j=0;j<poly.length;j++){d=distToSeg(v[i].x,v[i].y,poly[j][0],poly[j][1],poly[(j+1)%poly.length][0],poly[(j+1)%poly.length][1]);if(d<minD)minD=d;}
 return minD;
 }
+function buildTriangleSight(ka,nx,g,rightHat,eps){
+var t=cellMap[ka],nb=neigh[ka]||[],i,nk,o,dx,dy,along,cross,ac,rd;
+var laneAnyKey=null,laneAnyCross=1e30,laneAnyAlong=1e30,laneFreeKey=null,laneFreeCross=1e30,laneFreeAlong=1e30;
+var edgeVision=[],litEdgeIds=[],darkEdgeIds=[],vertexVision=[],litVertexIds=[],darkVertexIds=[],flipCand=null,flipCross=1e30,flipAlong=-1e30,flipLat=1e30;
+if(!t)return null;
+for(i=0;i<nb.length;i++){
+nk=nb[i];o=cellMap[nk];if(!o)continue;
+edgeVision.push({key:nk,id:o.id,kind:o.kind,lit:nx.has(nk)});
+if(nx.has(nk))litEdgeIds.push(o.id);else darkEdgeIds.push(o.id);
+dx=o.cx-t.cx;dy=o.cy-t.cy;along=dx*g.gx+dy*g.gy;
+if(o.kind!==t.kind&&along>eps&&!nx.has(nk)){
+cross=dx*(-g.gy)+dy*g.gx;ac=Math.abs(cross);rd=Math.abs(dx*rightHat.gx+dy*rightHat.gy);
+if(flipCand===null||ac<flipCross-eps||(Math.abs(ac-flipCross)<1e-9&&(along>flipAlong+eps||(Math.abs(along-flipAlong)<1e-9&&(rd<flipLat-eps||(Math.abs(rd-flipLat)<1e-9&&nk<flipCand)))))){flipCand=nk;flipCross=ac;flipAlong=along;flipLat=rd;}
+}
+}
+nb=vertexNeigh[ka]||[];
+for(i=0;i<nb.length;i++){
+nk=nb[i];o=cellMap[nk];if(!o)continue;
+vertexVision.push({key:nk,id:o.id,kind:o.kind,lit:nx.has(nk)});
+if(nx.has(nk))litVertexIds.push(o.id);else darkVertexIds.push(o.id);
+}
+for(i=0;i<cells.length;i++){
+o=cells[i];nk=kKey(o);if(o.kind!==t.kind)continue;
+if(o.ti===t.ti&&o.tj===t.tj+1&&!cellBoundary[ka])continue;
+dx=o.cx-t.cx;dy=o.cy-t.cy;along=dx*g.gx+dy*g.gy;if(along<=eps)continue;
+cross=dx*(-g.gy)+dy*g.gx;ac=Math.abs(cross);
+if(laneAnyKey===null||ac<laneAnyCross-eps||(Math.abs(ac-laneAnyCross)<1e-9&&(along<laneAnyAlong-eps||(Math.abs(along-laneAnyAlong)<1e-9&&nk<laneAnyKey)))){laneAnyKey=nk;laneAnyCross=ac;laneAnyAlong=along;}
+if(nx.has(nk))continue;
+if(laneFreeKey===null||ac<laneFreeCross-eps||(Math.abs(ac-laneFreeCross)<1e-9&&(along<laneFreeAlong-eps||(Math.abs(along-laneFreeAlong)<1e-9&&nk<laneFreeKey)))){laneFreeKey=nk;laneFreeCross=ac;laneFreeAlong=along;}
+}
+return{
+key:ka,id:t.id,kind:t.kind,tj:t.tj,isBoundary:!!cellBoundary[ka],edgeVision:edgeVision,litEdgeIds:litEdgeIds,darkEdgeIds:darkEdgeIds,
+vertexVision:vertexVision,litVertexIds:litVertexIds,darkVertexIds:darkVertexIds,
+laneAnyKey:laneAnyKey,laneFreeKey:laneFreeKey,laneBlockedNearest:laneAnyKey!==null&&nx.has(laneAnyKey),
+bestFlipKey:flipCand
+};
+}
+function computeDownPointyBlockedCandidate(sight,nx,g,rightHat,eps){
+var t,ka,flipCand,nxTmp,tf,cand2,bCross2,bAlong2,ci,o,nk,dx,dy,along,cross,ac;
+if(!sight||!sight.laneBlockedNearest||sight.kind!==0)return{composite:null,flip:null};
+t=cellMap[sight.key];ka=sight.key;flipCand=sight.bestFlipKey;
+if(flipCand===null)return{composite:null,flip:null};
+nxTmp=new Set(nx);nxTmp.delete(ka);nxTmp.add(flipCand);
+tf=cellMap[flipCand];cand2=null;bCross2=1e30;bAlong2=1e30;
+if(tf){
+for(ci=0;ci<cells.length;ci++){
+o=cells[ci];if(o.kind!==tf.kind)continue;if(o.ti===tf.ti&&o.tj===tf.tj+1&&!cellBoundary[flipCand])continue;
+dx=o.cx-tf.cx;dy=o.cy-tf.cy;along=dx*g.gx+dy*g.gy;if(along<=eps)continue;
+cross=dx*(-g.gy)+dy*g.gx;ac=Math.abs(cross);if(ac<bCross2-eps)bCross2=ac;
+}
+if(bCross2<1e29){
+for(ci=0;ci<cells.length;ci++){
+o=cells[ci];nk=kKey(o);if(o.kind!==tf.kind)continue;if(o.ti===tf.ti&&o.tj===tf.tj+1&&!cellBoundary[flipCand])continue;if(nxTmp.has(nk))continue;
+dx=o.cx-tf.cx;dy=o.cy-tf.cy;along=dx*g.gx+dy*g.gy;if(along<=eps)continue;
+cross=dx*(-g.gy)+dy*g.gx;ac=Math.abs(cross);if(ac>bCross2+eps)continue;
+if(cand2===null||along<bAlong2-eps||(Math.abs(along-bAlong2)<1e-9&&nk<cand2)){cand2=nk;bAlong2=along;}
+}}
+}
+return{composite:cand2,flip:flipCand};
+}
+function chooseRuleBasedMove(flags,candidates,cl){
+var i,j,r,ok,c;
+if(!physicsRuleSet||!Array.isArray(physicsRuleSet.states))return null;
+for(i=0;i<physicsRuleSet.states.length;i++){
+r=physicsRuleSet.states[i];if(!r||r.enabled===false)continue;
+ok=true;
+for(j=0;j<(r.requires||[]).length;j++)if(!flags[r.requires[j]]){ok=false;break;}
+if(ok)for(j=0;j<(r.forbids||[]).length;j++)if(flags[r.forbids[j]]){ok=false;break;}
+if(!ok)continue;
+c=candidates[r.candidate];
+if(c!==null&&c!==undefined&&!cl.has(c))return{to:c,phase:r.id};
+}
+return null;
+}
 function neighborFallOnce(onSet){
-var g=grav(rotStep),eps=1e-6,nx=new Set(onSet),keys=Array.from(nx),i,j,ka,t,nb,nk,o,dx,dy,along,cross,ac,cand,bCross,bAlong,cl=new Set(),moves=[],ci,rightHat,bLat,rd,wallMode,score,bScore,forced,nextForced,nxTmp,bottomBoundaryCy=-1e30;
+var g=grav(rotStep),eps=1e-6,nx=new Set(onSet),keys=Array.from(nx),i,j,ka,t,nb,nk,o,dx,dy,along,cross,ac,cand,bCross,bAlong,cl=new Set(),moves=[],ci,rightHat,bLat,rd,wallMode,bottomBoundaryCy=-1e30;
 rightHat={gx:g.gy,gy:-g.gx};
 for(ci=0;ci<cells.length;ci++){if(cellBoundary[kKey(cells[ci])]&&cells[ci].cy>bottomBoundaryCy)bottomBoundaryCy=cells[ci].cy;}
 keys.sort(function(k1,k2){return cellMap[k1].cy-cellMap[k2].cy});
 for(i=0;i<keys.length;i++){
 ka=keys[i];if(!nx.has(ka))continue;t=cellMap[ka];
 wallMode=layoutSpec.containerPolygon&&layoutSpec.containerPolygon.length>=3&&(triangleHasVertexNearContainerWall(t)||cellBoundary[ka]||cellMinDistToContainerWall(ka)<=a*0.8)&&t.tj>=8;
-if(wallMode){
-forced=fsmWallModeMove(ka,nx,g,rightHat,eps);
-if(forced&&forced.to!==null&&!cl.has(forced.to)){
-if(forced.phase==="pivotRotate"&&cellMap[forced.to]&&cellMap[forced.to].tj===t.tj){
-nxTmp=new Set(nx);nxTmp.delete(ka);nxTmp.add(forced.to);
-nextForced=fsmWallModeMove(forced.to,nxTmp,g,rightHat,eps);
-if(nextForced&&nextForced.to!==null&&nextForced.to!==ka&&!nx.has(nextForced.to)&&!cl.has(nextForced.to)){
-nx.delete(ka);nx.add(nextForced.to);cl.add(nextForced.to);moves.push({f:ka,t:nextForced.to,phase:"wallSlideComposite"});continue;
+var sight=buildTriangleSight(ka,nx,g,rightHat,eps),blockedOpt,wallCand,bottomCand,interiorCand,bottomNear,ruleMove,wallChoices,wallCompositeCand=null,pivotCand=null,slideLocalCand=null,nextWallChoices,nxTmp;
+wallChoices=wallMode?wallModeCandidateMap(ka,nx,g,rightHat,eps):{slideLocal:null,pivotRotate:null};
+slideLocalCand=wallChoices.slideLocal;
+pivotCand=wallChoices.pivotRotate;
+if(pivotCand!==null&&cellMap[pivotCand]&&cellMap[pivotCand].tj===t.tj){
+nxTmp=new Set(nx);nxTmp.delete(ka);nxTmp.add(pivotCand);
+nextWallChoices=wallModeCandidateMap(pivotCand,nxTmp,g,rightHat,eps);
+wallCompositeCand=nextWallChoices.slideLocal!==null?nextWallChoices.slideLocal:nextWallChoices.pivotRotate;
+if(wallCompositeCand===null||wallCompositeCand===ka||nx.has(wallCompositeCand)||cl.has(wallCompositeCand))wallCompositeCand=null;
 }
-}
-nx.delete(ka);nx.add(forced.to);cl.add(forced.to);moves.push({f:ka,t:forced.to,phase:forced.phase});continue;
-}
-}
-bCross=1e30;
-for(ci=0;ci<cells.length;ci++){
-o=cells[ci];if(o.kind!==t.kind)continue;if(o.ti===t.ti&&o.tj===t.tj+1&&!cellBoundary[ka])continue;
-dx=o.cx-t.cx;dy=o.cy-t.cy;along=dx*g.gx+dy*g.gy;if(along<=eps)continue;
-cross=dx*(-g.gy)+dy*g.gx;ac=Math.abs(cross);if(ac<bCross-eps)bCross=ac;
-}
-cand=null;bAlong=1e30;
-if(bCross<1e29){
-for(ci=0;ci<cells.length;ci++){
-o=cells[ci];nk=kKey(o);if(o.kind!==t.kind)continue;if(o.ti===t.ti&&o.tj===t.tj+1&&!cellBoundary[ka])continue;if(nx.has(nk))continue;
-dx=o.cx-t.cx;dy=o.cy-t.cy;along=dx*g.gx+dy*g.gy;if(along<=eps)continue;
-cross=dx*(-g.gy)+dy*g.gx;ac=Math.abs(cross);if(ac>bCross+eps)continue;
-if(cand===null||along<bAlong-eps||(Math.abs(along-bAlong)<1e-9&&nk<cand)){cand=nk;bAlong=along;}
-}}
-if(cand!==null&&!cl.has(cand)){nx.delete(ka);nx.add(cand);cl.add(cand);moves.push({f:ka,t:cand,phase:"lane"});continue;}
-nb=neigh[ka]||[];cand=null;bLat=1e30;
+cand=sight?sight.laneFreeKey:null;
+nb=neigh[ka]||[];wallCand=null;bLat=1e30;
 for(j=0;j<nb.length;j++){
 nk=nb[j];if(nx.has(nk))continue;o=cellMap[nk];if(!o||o.kind===t.kind)continue;if(!cellBoundary[nk])continue;
 dx=o.cx-t.cx;dy=o.cy-t.cy;along=dx*g.gx+dy*g.gy;if(along<=eps)continue;
 rd=dx*rightHat.gx+dy*rightHat.gy;
-if(cand===null||rd<bLat-eps||(Math.abs(rd-bLat)<1e-9&&nk<cand)){cand=nk;bLat=rd;}
+if(wallCand===null||rd<bLat-eps||(Math.abs(rd-bLat)<1e-9&&nk<wallCand)){wallCand=nk;bLat=rd;}
 }
-if(cand!==null&&!cl.has(cand)){nx.delete(ka);nx.add(cand);cl.add(cand);moves.push({f:ka,t:cand,phase:"wall"});continue;}
-cand=null;bLat=1e30;
+bottomCand=null;bottomNear=t.cy>=bottomBoundaryCy-a*0.75;
+if(t.kind===0&&cellBoundary[ka]&&bottomNear){
+var bestCy=-1e30,bestDx=-1e30,bestAlong=-1e30;
+for(j=0;j<nb.length;j++){
+nk=nb[j];if(nx.has(nk))continue;o=cellMap[nk];if(!o||o.kind===t.kind)continue;
+dx=o.cx-t.cx;dy=o.cy-t.cy;along=dx*g.gx+dy*g.gy;if(along<-(a*0.45))continue;
+if(bottomCand===null||o.cy>bestCy+eps||(Math.abs(o.cy-bestCy)<1e-9&&(dx>bestDx+eps||(Math.abs(dx-bestDx)<1e-9&&(along>bestAlong+eps||(Math.abs(along-bestAlong)<1e-9&&nk<bottomCand)))))){bottomCand=nk;bestCy=o.cy;bestDx=dx;bestAlong=along;}
+}
+}
+interiorCand=null;bLat=1e30;
 for(j=0;j<nb.length;j++){
 nk=nb[j];if(nx.has(nk))continue;o=cellMap[nk];if(!o||o.kind===t.kind)continue;
 dx=o.cx-t.cx;dy=o.cy-t.cy;along=dx*g.gx+dy*g.gy;if(along<=eps)continue;
 rd=dx*rightHat.gx+dy*rightHat.gy;
-if(cand===null||rd<bLat-eps||(Math.abs(rd-bLat)<1e-9&&nk<cand)){cand=nk;bLat=rd;}
+if(interiorCand===null||rd<bLat-eps||(Math.abs(rd-bLat)<1e-9&&nk<interiorCand)){interiorCand=nk;bLat=rd;}
 }
-if(cand!==null&&!cl.has(cand)){nx.delete(ka);nx.add(cand);cl.add(cand);moves.push({f:ka,t:cand,phase:"interior"});}
-if(cand===null&&t.kind===0&&cellBoundary[ka]&&t.cy>=bottomBoundaryCy-a*0.75){
-cand=null;var bestCy=-1e30,bestAlong=-1e30,bestLat=1e30;
-for(j=0;j<nb.length;j++){
-nk=nb[j];if(nx.has(nk))continue;o=cellMap[nk];if(!o||o.kind===t.kind)continue;if(!cellBoundary[nk])continue;
-dx=o.cx-t.cx;dy=o.cy-t.cy;along=dx*g.gx+dy*g.gy;if(along<-(a*0.22))continue;
-rd=dx*rightHat.gx+dy*rightHat.gy;
-if(cand===null||o.cy>bestCy+eps||(Math.abs(o.cy-bestCy)<1e-9&&(along>bestAlong+eps||(Math.abs(along-bestAlong)<1e-9&&(rd<bestLat-eps||(Math.abs(rd-bestLat)<1e-9&&nk<cand)))))){cand=nk;bestCy=o.cy;bestAlong=along;bestLat=rd;}
-}
-if(cand!==null&&!cl.has(cand)){nx.delete(ka);nx.add(cand);cl.add(cand);moves.push({f:ka,t:cand,phase:"bottomFlip"});}
+blockedOpt=computeDownPointyBlockedCandidate(sight,nx,g,rightHat,eps);
+ruleMove=chooseRuleBasedMove(
+{isDownPointy:t.kind===0,isBoundary:!!cellBoundary[ka],nearBottomBoundary:bottomNear,laneBlockedNearest:!!(sight&&sight.laneBlockedNearest),wallModeActive:!!wallMode},
+{wallSlideComposite:wallCompositeCand,slideLocal:slideLocalCand,pivotRotate:pivotCand,lane:cand,downPointyBlockedComposite:blockedOpt.composite,downPointyBlockedFlip:blockedOpt.flip,bottomFlip:bottomCand,wall:wallCand,interior:interiorCand},
+cl
+);
+if(ruleMove&&ruleMove.to!==null&&ruleMove.to!==undefined){
+nx.delete(ka);nx.add(ruleMove.to);cl.add(ruleMove.to);moves.push({f:ka,t:ruleMove.to,phase:ruleMove.phase});continue;
 }
 }
 return{next:nx,moves:moves};
@@ -351,7 +439,8 @@ if(!tf||!tt)return"?";
 if(phase==="lane"){adj=(neigh[fk]||[]).indexOf(tk)>=0;return adj?"slide":"skip";}
 if(phase==="slideLocal")return"slide";
 if(phase==="wallSlideComposite")return"slide";
-if(phase==="pivotRotate"||phase==="pivot"||phase==="layFlat"||phase==="wallSlide"||phase==="boundaryTip"||phase==="wall"||phase==="interior"||phase==="bottomFlip")return"rotation";
+if(phase==="downPointyBlockedComposite")return"slide";
+if(phase==="pivotRotate"||phase==="pivot"||phase==="layFlat"||phase==="wallSlide"||phase==="boundaryTip"||phase==="wall"||phase==="interior"||phase==="bottomFlip"||phase==="downPointyBlockedFlip")return"rotation";
 return"?";
 }
 function neighborWhyLine(fk,nk,chosenTk,phase,g,t,rightHat,eps,beforeOn){
@@ -364,6 +453,7 @@ dx=o.cx-t.cx;dy=o.cy-t.cy;along=dx*g.gx+dy*g.gy;rd=dx*rightHat.gx+dy*rightHat.gy
 if(o.kind===t.kind){
 if(phase==="slideLocal")return"local same-kind slide selected before long lane skip (#"+chId+")";
 if(phase==="wallSlideComposite")return"composite wall slide: intermediate same-row tip collapsed into direct slide to #"+chId;
+if(phase==="downPointyBlockedComposite")return"down-pointy blocked lane macro: opposite-kind flip collapsed into direct same-kind landing #"+chId;
 if(phase==="layFlat")return"same-orientation: skipped — lay-flat on container (increase edge support) before lane slide (flip to #"+chId+")";
 if(phase==="wallSlide")return"same-orientation: skipped — keep full-edge wall contact via local rotation before lane skip (flip to #"+chId+")";
 if(phase==="boundaryTip")return"same-orientation: skipped — boundary tip rotation runs before long lane skip (flip to #"+chId+")";
@@ -374,8 +464,10 @@ return"lane: not min |cross| tier / min along — #"+chId+" wins";
 }
 if(along<=eps)return"tip (flip kind): not downhill";
 if(phase==="wallSlideComposite")return"composite wall slide: intermediate pivot omitted; #"+chId+" is the landed slide state";
+if(phase==="downPointyBlockedComposite")return"down-pointy blocked lane macro: intermediate flip omitted; #"+chId+" is landed lane state";
 if(phase==="pivotRotate")return"forced boundary pivot: share contact vertex on container wall + clockwise/downhill tie-break";
 if(phase==="bottomFlip")return"bottom edge case: down-pointy boundary triangle allows terminal flip near container floor";
+if(phase==="downPointyBlockedFlip")return"down-pointy blocked lane edge case: nearest downhill opposite-kind flip is selected first";
 if(phase==="pivot"){
 if(sharedEdgeWallAttachScore(fk,nk)<=0)return"flip: shared edge not on container wall (no wall attach — weak vs #"+chId+")";
 return"flip: wall attach — lost tie to #"+chId+" (higher wall score or leftmost)";
@@ -406,8 +498,10 @@ tel("  ▶ #"+tf.id+" → #"+tt.id+"  phase="+ph+"  transition="+trans);
 if(ph==="pivotRotate")tel("    story: #"+tf.id+" finds wall-contact pivot, no valid local slide, then tips clockwise into #"+tt.id);
 else if(ph==="slideLocal")tel("    story: #"+tf.id+" keeps orientation and performs a local slide into #"+tt.id);
 else if(ph==="wallSlideComposite")tel("    story: #"+tf.id+" does a wall-slide macro move (tip then settle) and lands at #"+tt.id);
+else if(ph==="downPointyBlockedComposite")tel("    story: #"+tf.id+" has blocked lane as down-pointy, so it performs flip+lane macro and lands at #"+tt.id);
 else if(ph==="lane")tel("    story: #"+tf.id+" takes a same-kind lane move to #"+tt.id);
 else if(ph==="bottomFlip")tel("    story: #"+tf.id+" hits bottom boundary as down-pointy and uses terminal flip into #"+tt.id);
+else if(ph==="downPointyBlockedFlip")tel("    story: #"+tf.id+" is down-pointy with blocked lane, so it flips to nearest downhill opposite-kind cell #"+tt.id);
 else if(ph==="wall"||ph==="interior"||ph==="boundaryTip"||ph==="wallSlide"||ph==="pivot"||ph==="layFlat")tel("    story: #"+tf.id+" rotates into #"+tt.id+" to follow boundary/gravity constraints");
 nb=neigh[fk]||[];
 tel("    surrounding (id): "+nb.map(function(k){return cellMap[k]?cellMap[k].id:"?"}).join(", "));
@@ -506,10 +600,45 @@ function clearPathPreview(){pathPreview=null;pathPreviewLayers=[];setPreviewIdsB
 function updPathPreviewButton(){var pp=document.getElementById("pp");if(pp)pp.textContent=pathPreview?"Hide path preview":"Preview path"}
 function setsEqual(A,B){if(A.size!==B.size)return false;var it=A.values(),x;while(!(x=it.next()).done)if(!B.has(x.value))return false;return true;}
 function sortedKeys(s){return Array.from(s).sort()}
+var physicsRuleSet={version:1,name:"embedded-default",states:[
+{id:"wallSlideComposite",candidate:"wallSlideComposite",enabled:true,requires:["wallModeActive"]},
+{id:"slideLocal",candidate:"slideLocal",enabled:true,requires:["wallModeActive"]},
+{id:"pivotRotate",candidate:"pivotRotate",enabled:true,requires:["wallModeActive"]},
+{id:"lane",candidate:"lane",enabled:true,requires:[],forbids:["wallModeActive"]},
+{id:"downPointyBlockedComposite",candidate:"downPointyBlockedComposite",enabled:true,requires:["isDownPointy","laneBlockedNearest"],forbids:["wallModeActive"]},
+{id:"downPointyBlockedFlip",candidate:"downPointyBlockedFlip",enabled:true,requires:["isDownPointy","laneBlockedNearest"],forbids:["wallModeActive"]},
+{id:"bottomFlip",candidate:"bottomFlip",enabled:true,requires:["isDownPointy","isBoundary","nearBottomBoundary"],forbids:["wallModeActive"]},
+{id:"wall",candidate:"wall",enabled:true,requires:[],forbids:["wallModeActive"]},
+{id:"interior",candidate:"interior",enabled:true,requires:[],forbids:["wallModeActive"]}
+]};
+function normalizePhysicsRuleSet(obj){
+var out={version:1,name:"normalized",states:[]},arr,i,r,req,forbids;
+if(!obj||typeof obj!=="object"||!Array.isArray(obj.states))return out;
+out.version=typeof obj.version==="number"?obj.version:1;
+out.name=typeof obj.name==="string"?obj.name:"custom";
+arr=obj.states;
+for(i=0;i<arr.length;i++){
+r=arr[i]||{};
+if(typeof r.id!=="string"||typeof r.candidate!=="string")continue;
+req=Array.isArray(r.requires)?r.requires.filter(function(x){return typeof x==="string"&&x.length>0;}):[];
+forbids=Array.isArray(r.forbids)?r.forbids.filter(function(x){return typeof x==="string"&&x.length>0;}):[];
+out.states.push({id:r.id,candidate:r.candidate,enabled:r.enabled!==false,requires:req,forbids:forbids});
+}
+return out;
+}
+function loadPhysicsRulesObject(obj,opts){
+var o=normalizePhysicsRuleSet(obj),options=opts||{};
+if(!o.states.length)throw new Error("physics rules must include at least one state");
+physicsRuleSet=o;
+if(!options.silent)tel("physics rules loaded: "+(o.name||"custom")+" (states="+o.states.length+")");
+return{version:o.version,name:o.name,stateCount:o.states.length};
+}
 var on=new Set(),showNums=true,rotStep=0,pathPreview=null,pathPreviewLayers=[],litColorByKey={},nextLitColorIdx=0;
 var snapshots=[{keys:[],rot:0,colors:{},nextColorIdx:0,label:"start"}];
 var snapIdx=0;
 var screenshotTickSeq=0;
+var proofBusy=false;
+var bridgeRemoteLastId=0;
 var maxTel=400;
 var telLines=[];
 function tel(s){var line=(new Date()).toLocaleTimeString()+"  "+s;telLines.unshift(line);if(telLines.length>maxTel)telLines.length=maxTel;var el=document.getElementById("tel");if(el)el.textContent=telLines.join("\n");}
@@ -568,9 +697,7 @@ var seq;
 if(HEADLESS_SIM)return;
 screenshotTickSeq++;
 seq=screenshotTickSeq;
-requestAnimationFrame(function(){
 saveBoardScreenshot(seq).then(function(ok){if(ok)tel("screenshot saved: "+(reason||"shot")+" "+padNum(seq,4));}).catch(function(e){tel("screenshot failed: "+(e&&e.message?e.message:e));});
-});
 }
 function maybeCaptureTickScreenshot(){
 var ck=document.getElementById("ssTick");
@@ -604,6 +731,16 @@ return false;
 }
 function bridgePost(route,payload){
 return fetch(bridgeUrl()+route,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload||{})}).then(function(res){
+return res.text().then(function(txt){
+var data={};
+try{data=JSON.parse(txt||"{}");}catch(e){data={raw:txt||""};}
+if(!res.ok)throw new Error(data.error||("HTTP "+res.status));
+return data;
+});
+});
+}
+function bridgeGet(route){
+return fetch(bridgeUrl()+route,{method:"GET"}).then(function(res){
 return res.text().then(function(txt){
 var data={};
 try{data=JSON.parse(txt||"{}");}catch(e){data={raw:txt||""};}
@@ -672,6 +809,251 @@ clearPathPreview();
 pushSnapshot(label||"add ON ids");
 R();telExpectFall();
 }
+function cellExistsById(id){
+var i;
+for(i=0;i<cells.length;i++)if(cells[i].id===id)return true;
+return false;
+}
+function parseTicksFromCommand(s){
+var m=s.match(/fall(?:\s+for)?\s*(\d+)?\s*ticks?/i);
+if(m&&m[1])return Math.max(1,Math.min(200,parseInt(m[1],10)||1));
+m=s.match(/\bfall\s+(\d+)\b/i);
+if(m&&m[1])return Math.max(1,Math.min(200,parseInt(m[1],10)||1));
+if(/\bfall\b/i.test(s))return 1;
+return 0;
+}
+function runLocalTextCommand(raw){
+var txt=String(raw||"").trim(),norm,light,tid,ticks,i,moved;
+if(!txt){tel("command: empty");return;}
+norm=txt.toLowerCase().replace(/\badn\b/g,"and");
+if(/\ball\s+off\b/.test(norm)){logClick("Cmd all off");document.getElementById("a0").click();return;}
+if(/\bsettle\b/.test(norm)){logClick("Cmd settle");document.getElementById("st").click();return;}
+light=norm.match(/light\s+triangle\s+#?(\d+)/);
+if(light){
+tid=parseInt(light[1],10);
+if(!cellExistsById(tid)){tel("command: triangle #"+tid+" does not exist in this layout");return;}
+addOnByIds([tid],"command light #"+tid);
+tel("command: lit triangle #"+tid);
+}
+ticks=parseTicksFromCommand(norm);
+if(ticks>0){
+if(on.size===0){tel("command: cannot fall with no lit triangles");return;}
+moved=0;
+for(i=0;i<ticks;i++)if(doFallOneTick())moved++;else break;
+tel("command: fall "+ticks+" tick(s) -> moved "+moved+" tick(s)");
+return;
+}
+if(light)return;
+tel("command not understood. Try: light triangle 20 and fall 2 ticks");
+}
+function executeBridgeActions(actions){
+var arr=Array.isArray(actions)?actions:[],i,a,id,ticks,moved,oddIds,evenIds,c;
+for(i=0;i<arr.length;i++){
+a=arr[i]||{};
+if(a.op==="allOff"){document.getElementById("a0").click();continue;}
+if(a.op==="settle"){document.getElementById("st").click();continue;}
+if(a.op==="stopRepeatTopMiddleSettle"){stopRepeatTopMiddleSettle();continue;}
+if(a.op==="repeatTopMiddleSettle"){runRepeatTopMiddleSettle({repeats:a.repeats,maxTicksPerDrop:a.maxTicksPerDrop,tickDelayMs:a.tickDelayMs,spawnDelayMs:a.spawnDelayMs,spawnId:a.spawnId});continue;}
+if(a.op==="loadContainerFile"){
+var loadPath=String(a.path||"");
+bridgePost("/load-container-file",{path:loadPath}).then(function(r){
+if(!r||!r.object){tel("bridge action failed: could not load container file");return;}
+loadStateObject(r.object,{silent:false,clearTelemetry:true,label:"bridge load"});
+tel("bridge action: loaded "+(loadPath||"container file"));
+}).catch(function(e){
+tel("bridge action failed: loadContainerFile "+(e&&e.message?e.message:e));
+});
+continue;
+}
+if(a.op==="loadRulesFile"){
+var rulesPath=String(a.path||"");
+bridgePost("/load-rules-file",{path:rulesPath}).then(function(r){
+if(!r||!r.object){tel("bridge action failed: could not load rules file");return;}
+loadPhysicsRulesObject(r.object,{silent:false});
+tel("bridge action: loaded rules "+(rulesPath||"physics rules file"));
+}).catch(function(e){
+tel("bridge action failed: loadRulesFile "+(e&&e.message?e.message:e));
+});
+continue;
+}
+if(a.op==="lightOddAll"){
+oddIds=[];
+for(c=0;c<cells.length;c++)if(cells[c].id%2===1)oddIds.push(cells[c].id);
+setOnByIds(oddIds,"bridge odd pattern");
+tel("bridge action: lit all odd-numbered triangles ("+oddIds.length+")");
+continue;
+}
+if(a.op==="lightEvenAll"){
+evenIds=[];
+for(c=0;c<cells.length;c++)if(cells[c].id%2===0)evenIds.push(cells[c].id);
+setOnByIds(evenIds,"bridge even pattern");
+tel("bridge action: lit all even-numbered triangles ("+evenIds.length+")");
+continue;
+}
+if(a.op==="light"){
+id=Number(a.id);
+if(!Number.isFinite(id)||!cellExistsById(id)){tel("bridge action skipped: triangle #"+a.id+" not found");continue;}
+addOnByIds([Math.trunc(id)],"bridge light #"+Math.trunc(id));
+tel("bridge action: lit triangle #"+Math.trunc(id));
+continue;
+}
+if(a.op==="fall"){
+ticks=Math.max(1,Math.min(200,Math.trunc(Number(a.ticks)||1)));
+moved=0;
+for(var j=0;j<ticks;j++)if(doFallOneTick())moved++;else break;
+tel("bridge action: fall "+ticks+" tick(s) -> moved "+moved+" tick(s)");
+}
+}
+}
+function boardContextForBridge(){
+return{
+rotationSteps:rotStep,
+onIds:cells.filter(function(t){return on.has(kKey(t));}).map(function(t){return t.id}).sort(function(a,b){return a-b}),
+container:layoutSpec.containerPolygon&&layoutSpec.containerPolygon.length===3?"V":"T/custom",
+cellCount:cells.length
+};
+}
+function runTextCommand(raw){
+var txt=String(raw||"").trim();
+if(!txt){tel("command: empty");return;}
+tel("command: sending to bridge...");
+bridgePost("/play-command",{prompt:txt,context:boardContextForBridge()}).then(function(r){
+if(r&&r.reply)tel("assistant: "+r.reply);
+if(r&&r.mode)tel("assistant mode: "+r.mode);
+if(r&&Array.isArray(r.actions)&&r.actions.length){executeBridgeActions(r.actions);return;}
+if(r&&r.mode==="llm")tel("assistant: no actions returned");
+else runLocalTextCommand(txt);
+}).catch(function(e){
+setBridgeUi(false,"Offline — start with: node Sandbox/media-bridge.cjs");
+tel("assistant bridge failed: "+(e&&e.message?e.message:e)+" — using local parser");
+runLocalTextCommand(txt);
+});
+}
+function pollBridgeDispatchedCommands(){
+bridgeGet("/next-command?after="+bridgeRemoteLastId).then(function(r){
+var c;
+if(!r||!r.ok)return;
+if(typeof r.lastId==="number"&&r.lastId>bridgeRemoteLastId)bridgeRemoteLastId=r.lastId;
+c=r.command;
+if(!c||!c.actions||!c.actions.length)return;
+if(c.reply)tel("assistant(dispatch): "+c.reply);
+tel("assistant(dispatch mode): "+(c.mode||"unknown")+" · cmd#"+c.id);
+executeBridgeActions(c.actions);
+}).catch(function(){});
+}
+function proofBottomIds(count){
+var bottomCy=bottomBoundaryMaxCy(),cx=containerCenterX(),band=Math.max(a*0.9,8),cands,n=Math.max(1,Math.min(64,Math.floor(Number(count)||4)));
+cands=cells.filter(function(t){return t.cy>=bottomCy-band;});
+cands.sort(function(t1,t2){
+var d1=Math.abs(t1.cx-cx),d2=Math.abs(t2.cx-cx);
+if(Math.abs(d1-d2)>1e-9)return d1-d2;
+if(Math.abs(t1.cy-t2.cy)>1e-9)return t2.cy-t1.cy;
+return t1.id-t2.id;
+});
+return cands.slice(0,n).map(function(t){return t.id;});
+}
+function proofBottomFourIds(){
+return proofBottomIds(4);
+}
+function proofCenterDropId(excludeIds){
+var ex=new Set(excludeIds||[]),cx=containerCenterX(),cands;
+cands=cells.filter(function(t){return !ex.has(t.id);});
+cands.sort(function(t1,t2){
+var y=t1.cy-t2.cy;
+if(Math.abs(y)>1e-9)return y;
+var d1=Math.abs(t1.cx-cx),d2=Math.abs(t2.cx-cx);
+if(Math.abs(d1-d2)>1e-9)return d1-d2;
+return t1.id-t2.id;
+});
+return cands.length?cands[0].id:null;
+}
+function topMiddleId(preferDown){
+var cx=containerCenterX(),minCy=1e30,i,t,band,cands,best=null,bDist=1e30;
+for(i=0;i<cells.length;i++)if(cells[i].cy<minCy)minCy=cells[i].cy;
+band=Math.max(a*0.9,8);
+cands=cells.filter(function(c){return c.cy<=minCy+band;});
+if(preferDown)cands=cands.filter(function(c){return c.kind===0;});
+if(!cands.length)cands=cells.filter(function(c){return c.cy<=minCy+band;});
+for(i=0;i<cands.length;i++){
+t=cands[i];
+var d=Math.abs(t.cx-cx);
+if(best===null||d<bDist-1e-9||(Math.abs(d-bDist)<1e-9&&t.id<best.id)){best=t;bDist=d;}
+}
+return best?best.id:null;
+}
+function sleepMs(ms){return new Promise(function(resolve){setTimeout(resolve,Math.max(0,ms|0));});}
+var liveDropDemoBusy=false,liveDropDemoCancel=false;
+function stopRepeatTopMiddleSettle(){
+if(!liveDropDemoBusy){tel("live drop demo: not running");return;}
+liveDropDemoCancel=true;
+tel("live drop demo: stop requested");
+}
+async function runRepeatTopMiddleSettle(opts){
+var o=opts||{},repeats=Math.max(1,Math.min(120,Math.trunc(Number(o.repeats)||12))),maxTicks=Math.max(1,Math.min(500,Math.trunc(Number(o.maxTicksPerDrop)||140))),tickDelay=Math.max(0,Math.min(4000,Math.trunc(Number(o.tickDelayMs)||650))),spawnDelay=Math.max(0,Math.min(4000,Math.trunc(Number(o.spawnDelayMs)||900))),fixedSpawn=Number.isFinite(Number(o.spawnId))?Math.max(0,Math.trunc(Number(o.spawnId))):null,drop,spawnId,before,moved,t;
+if(liveDropDemoBusy){tel("live drop demo: already running");return;}
+liveDropDemoBusy=true;
+liveDropDemoCancel=false;
+try{
+tel("live drop demo: repeats="+repeats+" maxTicksPerDrop="+maxTicks+" tickDelayMs="+tickDelay+(fixedSpawn!==null?" spawnId="+fixedSpawn:""));
+for(drop=0;drop<repeats;drop++){
+if(liveDropDemoCancel){tel("live drop demo: stopped by request");break;}
+spawnId=fixedSpawn!==null?fixedSpawn:topMiddleId(true);
+if(spawnId===null){tel("live drop demo: no top-middle spawn id found");break;}
+before=on.size;
+addOnByIds([spawnId],"live drop spawn "+(drop+1));
+if(on.size<=before){tel("live drop demo: spawn blocked at drop "+(drop+1)+" (#"+spawnId+")");break;}
+tel("live drop demo: spawn "+(drop+1)+"/"+repeats+" -> #"+spawnId);
+await sleepMs(spawnDelay);
+for(t=0;t<maxTicks;t++){
+if(liveDropDemoCancel){tel("live drop demo: stopped by request");break;}
+moved=doFallOneTick();
+await sleepMs(tickDelay);
+if(!moved)break;
+}
+if(liveDropDemoCancel)break;
+if(t>=maxTicks)tel("live drop demo: drop "+(drop+1)+" reached max tick cap ("+maxTicks+")");
+}
+tel("live drop demo: done");
+}finally{
+liveDropDemoBusy=false;
+liveDropDemoCancel=false;
+}
+}
+async function runProofDemoAnimation(){
+if(proofBusy){tel("proof demo: already running");return;}
+proofBusy=true;
+try{
+logClick("Proof demo");
+applyContainerPreset("V");
+var baseIds=proofBottomFourIds(),dropId,tick,maxTicks=20,b,fs,moved;
+if(baseIds.length<4){tel("proof demo failed: could not resolve bottom four triangles");return;}
+setOnByIds(baseIds,"proof base (bottom 4)");
+tel("proof demo: bottom 4 lit -> "+baseIds.join(", "));
+await new Promise(function(resolve){setTimeout(resolve,260);});
+dropId=proofCenterDropId(baseIds);
+if(dropId===null){tel("proof demo failed: could not resolve center drop triangle");return;}
+addOnByIds([dropId],"proof drop seed");
+tel("proof demo: center drop starts at #"+dropId);
+await new Promise(function(resolve){setTimeout(resolve,220);});
+for(tick=0;tick<maxTicks;tick++){
+b=new Set(on);
+fs=fallTickSequential(on);
+if(setsEqual(b,fs.next))break;
+if(fs.moves&&fs.moves.length)applyMovesWithColors(fs.moves,fs.next);
+on=fs.next;
+pushSnapshot("proof tick "+(tick+1));
+fallTelemetry(b,fs.next,"proof tick",fs.moves);
+R();
+await new Promise(function(resolve){setTimeout(resolve,220);});
+}
+moved=tick>0;
+tel("proof demo result: "+(moved?"drop piece moved down center in "+tick+" tick(s)":"drop piece already settled"));
+}catch(err){
+tel("proof demo failed: "+(err&&err.message?err.message:err));
+}finally{
+proofBusy=false;
+}
+}
 function doFallOneTick(){
 if(!atLatest()){tel("(Forward to end before new fall)");return false}
 if(on.size===0){tel("Fall: light some triangles first — Fall only moves lit pieces.");return false}
@@ -715,6 +1097,29 @@ txt=g.appendChild(document.createElementNS("http://www.w3.org/2000/svg","text"))
 byR={};for(i=0;i<cells.length;i++){tr=cells[i];if(!byR[tr.tj])byR[tr.tj]=[];byR[tr.tj].push(tr);}rk=Object.keys(byR).map(Number).sort(function(a,b){return a-b});
 for(j=0;j<rk.length;j++){rn=rk[j];tr=byR[rn];minx=tr[0].cx;sumy=0;for(i=0;i<tr.length;i++){if(tr[i].cx<minx)minx=tr[i].cx;sumy+=tr[i].cy;}avgy=sumy/tr.length;txt=g.appendChild(document.createElementNS("http://www.w3.org/2000/svg","text"));txt.setAttribute("x",String(minx-a*0.55));txt.setAttribute("y",String(avgy));txt.setAttribute("class","rowR");txt.textContent="r"+rn;}
 var wEl=document.getElementById("w");wEl.innerHTML="";wEl.appendChild(boardBuildBannerNode());wEl.appendChild(svg);updRot();updContainerShapeLab();updHistUi();updPathPreviewButton();}
+function loadStateObject(o,opts){
+var idSet,nl,i,onNew,kk,fromEditor,msg,options=opts||{};
+if(!o||typeof o!=="object")throw new Error("load object must be a JSON object");
+fromEditor=!!(o.kind==="containerCellMask"&&o.mesh);
+nl=fromEditor?layoutFromCellMaskFile(o):layoutFromJSON(o.layout,layoutSpec);
+if(nl)rebuildWorldFromLayout(nl);
+if(typeof o.rotationSteps==="number")rotStep=((Math.round(o.rotationSteps)%6)+6)%6;
+onNew=new Set();
+if(fromEditor){/* greens stay empty */}
+else if(o.keys&&Array.isArray(o.keys)){for(i=0;i<o.keys.length;i++){kk=o.keys[i];if(typeof kk==="string"&&cellMap[kk])onNew.add(kk)}}
+else if(o.onIds&&Array.isArray(o.onIds)){idSet=new Set(o.onIds);for(i=0;i<cells.length;i++){if(idSet.has(cells[i].id))onNew.add(kKey(cells[i]))}}
+on=onNew;litColorByKey={};nextLitColorIdx=0;if(o.litColors&&typeof o.litColors==="object"){Object.keys(o.litColors).forEach(function(k){if(on.has(k)&&typeof o.litColors[k]==="number")litColorByKey[k]=o.litColors[k]});}
+on.forEach(function(k){if(litColorByKey[k]===undefined)litColorByKey[k]=nextLitColorIdx++;});
+if(typeof o.nextColorIdx==="number")nextLitColorIdx=Math.max(nextLitColorIdx,o.nextColorIdx);
+clearPathPreview();
+snapshots=[{keys:sortedKeys(on),rot:rotStep,colors:cloneLitColorMap(litColorByKey),nextColorIdx:nextLitColorIdx,label:options.label||"loaded"}];snapIdx=0;
+if(options.clearTelemetry!==false)telLines=[];
+msg=fromEditor?"loaded editor container mask — lit set empty; click cells ON to play":"loaded JSON OK";
+if(!options.silent)tel(msg);
+updContainerShapeLab();R();
+if(!options.silent)telExpectFall();
+return{fromEditor:fromEditor,onCount:on.size,cellCount:cells.length};
+}
 function atLatest(){return snapIdx===snapshots.length-1;}
 if(typeof globalThis!=="undefined"){
 globalThis.__TG_AUTOMATION__={
@@ -723,7 +1128,33 @@ setContainer:function(which){applyContainerPreset(which==="V"?"V":"T");},
 setOnIds:function(ids){setOnByIds(Array.isArray(ids)?ids:[],"automation set ON ids");},
 addOnIds:function(ids){addOnByIds(Array.isArray(ids)?ids:[],"automation add ON ids");},
 fallTick:function(){return doFallOneTick();},
-currentOnIds:function(){return cells.filter(function(t){return on.has(kKey(t));}).map(function(t){return t.id;}).sort(function(a,b){return a-b});}
+currentOnIds:function(){return cells.filter(function(t){return on.has(kKey(t));}).map(function(t){return t.id;}).sort(function(a,b){return a-b});},
+bottomIds:function(count){return proofBottomIds(count);},
+topMiddleId:function(preferDown){return topMiddleId(preferDown!==false);},
+wouldMove:function(){var b=new Set(on),fs=fallTickSequential(b);return !setsEqual(b,fs.next);},
+cellCount:function(){return cells.length;},
+peekFallPhases:function(){var b=new Set(on),fs=fallTickSequential(b);return(fs.moves||[]).map(function(m){return m.phase||"?";});},
+previewNextTick:function(){var b=new Set(on),fs=fallTickSequential(b),mv=(fs.moves||[]).map(function(m){return{from:cellMap[m.f]?cellMap[m.f].id:null,to:cellMap[m.t]?cellMap[m.t].id:null,phase:m.phase||"?"};});return{wouldMove:!setsEqual(b,fs.next),moves:mv};},
+loadObject:function(obj){return loadStateObject(obj,{silent:true,clearTelemetry:false,label:"automation load"});},
+setPhysicsRules:function(obj){return loadPhysicsRulesObject(obj,{silent:true});},
+getPhysicsRules:function(){return JSON.parse(JSON.stringify(physicsRuleSet));},
+triangleSightById:function(id){
+var ii,t,k,g=grav(rotStep),right={gx:g.gy,gy:-g.gx},s;
+for(ii=0;ii<cells.length;ii++)if(cells[ii].id===id){t=cells[ii];break;}
+if(!t)return null;
+k=kKey(t);s=buildTriangleSight(k,on,g,right,1e-6);
+if(!s)return null;
+return{
+id:s.id,key:s.key,kind:s.kind,isBoundary:s.isBoundary,
+laneAnyId:cellMap[s.laneAnyKey]?cellMap[s.laneAnyKey].id:null,
+laneFreeId:cellMap[s.laneFreeKey]?cellMap[s.laneFreeKey].id:null,
+laneBlockedNearest:s.laneBlockedNearest,
+litEdgeIds:s.litEdgeIds.slice(),
+darkEdgeIds:s.darkEdgeIds.slice(),
+litVertexIds:s.litVertexIds.slice(),
+darkVertexIds:s.darkVertexIds.slice()
+};
+}
 };
 }
 if(HEADLESS_SIM&&typeof globalThis!=="undefined"){
@@ -803,10 +1234,13 @@ document.getElementById("ssNow").onclick=function(){logClick("Screenshot now");c
 document.getElementById("mkMedia").onclick=function(){logClick("Make MP4/GIF");makeMediaViaBridge();};
 document.getElementById("xFrames").onclick=function(){logClick("MP4->PNG");extractFramesViaBridge();};
 document.getElementById("runScenario").onclick=function(){logClick("Run scenario");runScenarioViaBridge();};
+document.getElementById("proofDemo").onclick=function(){runProofDemoAnimation();};
 document.getElementById("bridgeRefresh").onclick=function(){logClick("Check bridge");checkBridgeHealth(false);};
+document.getElementById("chatSend").onclick=function(){var el=document.getElementById("chatCmd");if(!el)return;runTextCommand(el.value);};
+document.getElementById("chatCmd").addEventListener("keydown",function(ev){if(ev.key==="Enter"){ev.preventDefault();runTextCommand(this.value);}});
 document.getElementById("pp").onclick=function(){var d;logClick(pathPreview?"Hide path preview":"Preview path");if(pathPreview){clearPathPreview();R();tel("path preview hidden");return}if(on.size===0){tel("Preview path: light at least one triangle first");return}d=computeAnticipatedPathDetails(true);pathPreview=d.pathSet;pathPreviewLayers=d.layers||[];setPreviewIdsBox(d.ids);setPreviewLegend(pathPreviewLayers);R();tel("path preview: "+pathPreview.size+" cell(s) highlighted — preview path uses each lit triangle's assigned color")};
 document.getElementById("ft").onclick=function(){logClick("Fall 1 tick");doFallOneTick();};
-document.getElementById("st").onclick=function(){logClick("Settle");if(!atLatest()){tel("(Forward to end before settle)");return}if(on.size===0){tel("Settle: need at least one lit piece first.");return}clearPathPreview();var guard=0,b,aft,tick=0;while(guard<500){guard++;b=new Set(on);var sr=fallTickSequential(on);aft=sr.next;if(setsEqual(b,aft))break;if(sr.moves&&sr.moves.length)applyMovesWithColors(sr.moves,aft);on=aft;tick++;pushSnapshot("settle "+tick);fallTelemetry(b,aft,"settle",sr.moves);}tel("settle: "+tick+" inner step(s), done");R();telExpectFall();};
+document.getElementById("st").onclick=function(){logClick("Settle");if(!atLatest()){tel("(Forward to end before settle)");return}if(on.size===0){tel("Settle: need at least one lit piece first.");return}clearPathPreview();var guard=0,b,aft,tick=0;while(guard<500){guard++;b=new Set(on);var sr=fallTickSequential(on);aft=sr.next;if(setsEqual(b,aft))break;if(sr.moves&&sr.moves.length)applyMovesWithColors(sr.moves,aft);on=aft;tick++;pushSnapshot("settle "+tick);fallTelemetry(b,aft,"settle",sr.moves);maybeCaptureTickScreenshot();}tel("settle: "+tick+" inner step(s), done");R();telExpectFall();};
 document.getElementById("hb").onclick=function(){logClick("Back «");if(snapIdx>0)applySnapshot(snapIdx-1);};
 document.getElementById("hf").onclick=function(){logClick("Forward »");if(snapIdx<snapshots.length-1)applySnapshot(snapIdx+1);};
 document.getElementById("ct").onclick=function(){telLines=[];document.getElementById("tel").textContent="(log cleared)";logClick("Clear log");};
@@ -818,22 +1252,9 @@ var lay={side:layoutSpec.side,originX:layoutSpec.originX,originY:layoutSpec.orig
 Object.keys(litColorByKey).forEach(function(k){if(on.has(k))litColors[k]=litColorByKey[k]});
 var j=JSON.stringify({schemaVersion:1,layout:lay,rotationSteps:rotStep,keys:sortedKeys(on),onIds:onIds,litColors:litColors,nextColorIdx:nextLitColorIdx,historyIndex:snapIdx,meta:{count:cells.length,ticks:snapshots.length-1,playgroundBuild:PLAYGROUND_BUILD}},null,2);
 document.getElementById("o").hidden=false;document.getElementById("o").textContent=j;tel("JSON in panel below; clipboard attempted");if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(j).catch(function(){});};
-document.getElementById("ld").onchange=function(e){var f=e.target.files&&e.target.files[0],r;if(!f)return;logClick("Load "+f.name);r=new FileReader();r.onload=function(){try{var o=JSON.parse(String(r.result)),idSet,nl,i,onNew,kk,fromEditor;
-fromEditor=o.kind==="containerCellMask"&&o.mesh;
-nl=fromEditor?layoutFromCellMaskFile(o):layoutFromJSON(o.layout,layoutSpec);
-if(nl)rebuildWorldFromLayout(nl);
-if(typeof o.rotationSteps==="number")rotStep=((Math.round(o.rotationSteps)%6)+6)%6;
-onNew=new Set();
-if(fromEditor){/* greens stay empty */}
-else if(o.keys&&Array.isArray(o.keys)){for(i=0;i<o.keys.length;i++){kk=o.keys[i];if(typeof kk==="string"&&cellMap[kk])onNew.add(kk)}}
-else if(o.onIds&&Array.isArray(o.onIds)){idSet=new Set(o.onIds);for(i=0;i<cells.length;i++){if(idSet.has(cells[i].id))onNew.add(kKey(cells[i]))}}
-on=onNew;litColorByKey={};nextLitColorIdx=0;if(o.litColors&&typeof o.litColors==="object"){Object.keys(o.litColors).forEach(function(k){if(on.has(k)&&typeof o.litColors[k]==="number")litColorByKey[k]=o.litColors[k]});}
-on.forEach(function(k){if(litColorByKey[k]===undefined)litColorByKey[k]=nextLitColorIdx++;});
-if(typeof o.nextColorIdx==="number")nextLitColorIdx=Math.max(nextLitColorIdx,o.nextColorIdx);
-clearPathPreview();
-snapshots=[{keys:sortedKeys(on),rot:rotStep,colors:cloneLitColorMap(litColorByKey),nextColorIdx:nextLitColorIdx,label:"loaded"}];snapIdx=0;telLines=[];tel(fromEditor?"loaded editor container mask — lit set empty; click cells ON to play":"loaded JSON OK");updContainerShapeLab();R();telExpectFall();}catch(err){alert("Could not load: "+err);}};r.readAsText(f);e.target.value="";};
+document.getElementById("ld").onchange=function(e){var f=e.target.files&&e.target.files[0],r;if(!f)return;logClick("Load "+f.name);r=new FileReader();r.onload=function(){try{loadStateObject(JSON.parse(String(r.result)),{silent:false,clearTelemetry:true,label:"loaded"});}catch(err){alert("Could not load: "+err);}};r.readAsText(f);e.target.value="";};
 applyPlaygroundBuildLabel();
-R();updContainerShapeLab();setBridgeUi(false,"Offline — start with: node Sandbox/media-bridge.cjs");checkBridgeHealth(true);setInterval(function(){checkBridgeHealth(true);},4000);tel("Ready — Build "+PLAYGROUND_BUILD+" (also on Container line above). Ctrl+F5 if stale.");telExpectFall();
+R();updContainerShapeLab();setBridgeUi(false,"Offline — start with: node Sandbox/media-bridge.cjs");checkBridgeHealth(true);setInterval(function(){checkBridgeHealth(true);},4000);if(!dispatchPollDisabledFromUrl())setInterval(function(){pollBridgeDispatchedCommands();},1200);tel("Ready — Build "+PLAYGROUND_BUILD+" (also on Container line above). Ctrl+F5 if stale.");telExpectFall();
 })();
 </script>
 </body>

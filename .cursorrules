@@ -5,3 +5,9 @@ Proof of Work: For every task, provide terminal-based verification (e.g., ls or 
 No Assumptions: Do not implement standard MAUI patterns (MVVM, DI, etc.) unless explicitly requested and siloed.
 
 Git Commit/Push Rule: When the user asks to commit, push, or "commit and push", always use `Commit-AndPush.ps1` instead of direct `git add`, `git commit`, or `git push` commands.
+
+Daily Next-Time TODO Rule:
+- At the end of each day (or when the user says they are done for today), create or update `CHANGELOG/NEXT-TIME-YYYY-MM-DD.md`.
+- This file must capture items discussed but not implemented, with clear next actions.
+- At the start of each new coding session, read the latest `CHANGELOG/NEXT-TIME-YYYY-MM-DD.md` file first and check off completed items as work is done.
+- If new deferred items appear during the day, append them to that same day's NEXT-TIME file.

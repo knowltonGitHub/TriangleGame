@@ -1,0 +1,84 @@
+{
+  "suite": "physics-smoke",
+  "browserChannel": "chrome",
+  "visualize": true,
+  "stepDelayMs": 900,
+  "tickDelayMs": 500,
+  "testEndDelayMs": 1500,
+  "defaults": {
+    "containerFile": "Sandbox/better tri.json",
+    "rulesFile": "Sandbox/rules/triangle-physics.rules.v1.json"
+  },
+  "tests": [
+    {
+      "name": "bottom4-drop20-settles",
+      "actions": [
+        { "type": "allOff" },
+        { "type": "addBottomIds", "count": 4 },
+        { "type": "addId", "id": 20 },
+        { "type": "settle", "maxTicks": 200 }
+      ],
+      "assertions": [
+        { "type": "stable", "expected": true },
+        { "type": "settleTicksMax", "value": 200 },
+        { "type": "onCountAtLeast", "value": 1 }
+      ]
+    },
+    {
+      "name": "single-id20-reaches-stable",
+      "actions": [
+        { "type": "allOff" },
+        { "type": "addId", "id": 20 },
+        { "type": "settle", "maxTicks": 200 }
+      ],
+      "assertions": [
+        { "type": "stable", "expected": true },
+        { "type": "settleTicksMax", "value": 200 },
+        { "type": "onCountEquals", "value": 1 }
+      ]
+    },
+    {
+      "name": "rule-lane-next-tick",
+      "actions": [
+        { "type": "allOff" },
+        { "type": "addId", "id": 0 }
+      ],
+      "assertions": [
+        { "type": "nextTickHasPhase", "phase": "lane" }
+      ]
+    },
+    {
+      "name": "rule-wall-tip-next-tick",
+      "actions": [
+        { "type": "allOff" },
+        { "type": "addId", "id": 281 }
+      ],
+      "assertions": [
+        { "type": "nextTickHasAnyPhase", "phases": ["wallSlideComposite", "wall"] },
+        { "type": "nextTickLacksAnyPhase", "phases": ["pivotRotate", "pivot", "boundaryTip"] }
+      ]
+    },
+    {
+      "name": "rule-mask-container-no-pivot-next-tick",
+      "actions": [
+        { "type": "allOff" },
+        { "type": "addId", "id": 0 }
+      ],
+      "assertions": [
+        { "type": "nextTickHasPhase", "phase": "lane" },
+        { "type": "nextTickLacksAnyPhase", "phases": ["pivotRotate", "pivot", "boundaryTip"] }
+      ]
+    },
+    {
+      "name": "gameplay-repeat-top-middle-fill",
+      "actions": [
+        { "type": "allOff" },
+        { "type": "repeatTopMiddleSettle", "repeats": 18, "maxTicksPerDrop": 160, "spawnId": 16 }
+      ],
+      "assertions": [
+        { "type": "stable", "expected": true },
+        { "type": "onCountAtLeast", "value": 10 }
+      ]
+    }
+  ]
+}

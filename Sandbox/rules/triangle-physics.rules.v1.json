@@ -1,0 +1,66 @@
+{
+  "version": 1,
+  "name": "triangle-physics-v1",
+  "states": [
+    {
+      "id": "wallSlideComposite",
+      "candidate": "wallSlideComposite",
+      "enabled": true,
+      "requires": ["wallModeActive"]
+    },
+    {
+      "id": "slideLocal",
+      "candidate": "slideLocal",
+      "enabled": true,
+      "requires": ["wallModeActive"]
+    },
+    {
+      "id": "pivotRotate",
+      "candidate": "pivotRotate",
+      "enabled": true,
+      "requires": ["wallModeActive"]
+    },
+    {
+      "id": "lane",
+      "candidate": "lane",
+      "enabled": true,
+      "requires": [],
+      "forbids": ["wallModeActive"]
+    },
+    {
+      "id": "downPointyBlockedComposite",
+      "candidate": "downPointyBlockedComposite",
+      "enabled": true,
+      "requires": ["isDownPointy", "laneBlockedNearest"],
+      "forbids": ["wallModeActive"]
+    },
+    {
+      "id": "downPointyBlockedFlip",
+      "candidate": "downPointyBlockedFlip",
+      "enabled": true,
+      "requires": ["isDownPointy", "laneBlockedNearest"],
+      "forbids": ["wallModeActive"]
+    },
+    {
+      "id": "bottomFlip",
+      "candidate": "bottomFlip",
+      "enabled": true,
+      "requires": ["isDownPointy", "isBoundary", "nearBottomBoundary"],
+      "forbids": ["wallModeActive"]
+    },
+    {
+      "id": "wall",
+      "candidate": "wall",
+      "enabled": true,
+      "requires": [],
+      "forbids": ["wallModeActive"]
+    },
+    {
+      "id": "interior",
+      "candidate": "interior",
+      "enabled": true,
+      "requires": [],
+      "forbids": ["wallModeActive"]
+    }
+  ]
+}

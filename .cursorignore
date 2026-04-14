@@ -19,5 +19,9 @@
 !/.vscode/
 !/.vscode/**
 
+# Change logs
+!/CHANGELOG/
+!/CHANGELOG/**
+
 # Allow commit/push helper script
 !/Commit-AndPush.ps1

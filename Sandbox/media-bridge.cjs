@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 const http = require("http");
 const path = require("path");
+const fs = require("fs");
 const { execFile } = require("child_process");
 
 const sandboxDir = __dirname;
@@ -65,6 +66,17 @@ function parseBody(req) {
 
 function parseUrl(reqUrl) {
   return new URL(reqUrl || "/", "http://127.0.0.1");
+}
+
+function resolveSandboxFilePath(inputPath) {
+  const raw = String(inputPath || "").trim();
+  if (!raw) throw new Error("path is required");
+  const fromRepo = path.resolve(repoRoot, raw);
+  const fromSandbox = path.resolve(sandboxDir, raw);
+  const pick = fromRepo.startsWith(sandboxDir) ? fromRepo : fromSandbox;
+  const finalPath = path.resolve(pick);
+  if (!finalPath.startsWith(sandboxDir)) throw new Error("Only Sandbox files are allowed");
+  return finalPath;
 }
 
 function resolveSandboxJsonPath(inputPath) {
@@ -309,6 +321,20 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    if (req.method === "GET" && req.url.startsWith("/page-version")) {
+      const u = parseUrl(req.url);
+      const rel = String(u.searchParams.get("path") || "index.html").trim();
+      const filePath = resolveSandboxFilePath(rel);
+      const st = fs.statSync(filePath);
+      sendJson(res, 200, {
+        ok: true,
+        path: filePath,
+        mtimeMs: Number(st.mtimeMs || 0),
+        size: Number(st.size || 0),
+      });
+      return;
+    }
+
     if (req.method === "POST" && req.url === "/make-media") {
       const body = await parseBody(req);
       const pattern = body.pattern || "tg_b*_tick-*.png";
@@ -415,7 +441,7 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "POST" && req.url === "/load-container-file") {
       const body = await parseBody(req);
       const filePath = resolveSandboxJsonPath(body.path || "");
-      const raw = require("fs").readFileSync(filePath, "utf8");
+      const raw = fs.readFileSync(filePath, "utf8");
       let object = {};
       try {
         object = JSON.parse(raw);
@@ -430,7 +456,7 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "POST" && req.url === "/load-rules-file") {
       const body = await parseBody(req);
       const filePath = resolveSandboxJsonPath(body.path || "");
-      const raw = require("fs").readFileSync(filePath, "utf8");
+      const raw = fs.readFileSync(filePath, "utf8");
       let object = {};
       try {
         object = JSON.parse(raw);
@@ -472,6 +498,6 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(port, "127.0.0.1", () => {
   console.log(`Triangle media bridge listening on http://127.0.0.1:${port}`);
-  console.log("Endpoints: GET /health, GET /next-command, POST /make-media, POST /extract-frames, POST /run-scenario, POST /play-command, POST /dispatch-command, POST /load-container-file, POST /load-rules-file");
+  console.log("Endpoints: GET /health, GET /page-version, GET /next-command, POST /make-media, POST /extract-frames, POST /run-scenario, POST /play-command, POST /dispatch-command, POST /load-container-file, POST /load-rules-file");
   console.log(`LLM command mode: ${llmApiKey ? `enabled (${llmModel})` : "disabled (set TG_OPENAI_API_KEY)"}`);
 });

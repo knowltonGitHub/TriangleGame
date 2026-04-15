@@ -11,7 +11,16 @@
 body{margin:0;font-family:system-ui,sans-serif;background:var(--bg);color:var(--t);min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:12px}
 h1{font-size:1.1rem;margin:0 0 8px}
 .h{color:var(--m);font-size:.85rem;margin-bottom:12px;max-width:56rem;text-align:center}
-.tb{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:8px;padding:10px 14px;background:var(--p);border-radius:10px;max-width:min(100%,980px)}
+.tb{display:flex;flex-wrap:wrap;gap:10px;justify-content:flex-start;align-items:stretch;margin-bottom:8px;padding:10px 14px;background:var(--p);border-radius:10px;max-width:min(100%,980px);width:100%}
+.tbGlobal{display:flex;align-items:center;gap:8px;flex:1 1 100%}
+.tbMini{padding:6px 10px;font-size:.78rem;border-radius:7px}
+.tbGroup{display:block;border:1px solid #6f8fb1;border-radius:10px;background:#d9ecff;min-width:260px;flex:1 1 320px}
+.tbGroup summary{list-style:none;cursor:pointer;padding:8px 10px;color:var(--m);font-size:.74rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;user-select:none}
+.tbGroup summary::-webkit-details-marker{display:none}
+.tbGroup summary::before{content:"▾ ";color:#8ab4f8}
+.tbGroup:not([open]) summary::before{content:"▸ "}
+.tbGroupBody{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:0 8px 8px}
+.tbGroup:not([open]) .tbGroupBody{display:none}
 button,.fl{background:#3c4043;color:var(--t);border:1px solid var(--s);padding:8px 12px;border-radius:8px;cursor:pointer;font-size:.85rem}
 button:disabled{opacity:.45;cursor:not-allowed}
 .proofBtn{background:#2f3f56;border-color:#5b7aa3}
@@ -33,7 +42,8 @@ text.L.numMuted{fill:var(--m)}
 svg.hide-nums text.L{display:none}
 text.rowR{pointer-events:none;font-size:10px;fill:#8ab4f8;text-anchor:end;dominant-baseline:central;opacity:.95;font-weight:600}
 pre.o{margin-top:8px;padding:12px;background:#0d1117;border-radius:8px;font-size:11px;max-width:min(100%,980px);overflow:auto;color:#c9d1d9;border:1px solid #30363d}
-#tel{margin-top:4px;padding:10px;background:#0d1117;border-radius:8px;font-size:11px;max-width:min(100%,980px);width:100%;height:min(22vh,200px);min-height:100px;overflow:auto;color:#c9d1d9;border:1px solid #30363d;border-left:3px solid #58a6ff;font-family:ui-monospace,monospace;white-space:pre-wrap}
+#tel{margin-top:4px;padding:10px;background:#0d1117;border-radius:8px;font-size:11px;max-width:min(100%,980px);width:100%;height:min(14vh,130px);min-height:70px;overflow:auto;color:#c9d1d9;border:1px solid #30363d;border-left:3px solid #58a6ff;font-family:ui-monospace,monospace;white-space:pre-wrap}
+#telPeek{max-width:min(100%,980px);width:100%;margin:8px 0 0;padding:6px 8px;border:1px solid #334155;border-radius:8px;background:#111827;color:#c9d1d9;font-size:.76rem;font-family:ui-monospace,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pp-legend{margin-top:4px;display:flex;flex-wrap:wrap;gap:6px;max-width:min(100%,980px);width:100%}
 .pp-chip{display:inline-flex;align-items:center;gap:6px;padding:2px 8px;border:1px solid #3c4043;border-radius:999px;background:#1f2430;color:#c9d1d9;font-size:11px;font-family:ui-monospace,monospace}
 .pp-swatch{width:10px;height:10px;border-radius:2px;display:inline-block;border:1px solid rgba(255,255,255,.35)}
@@ -59,17 +69,40 @@ pre.o{margin-top:8px;padding:12px;background:#0d1117;border-radius:8px;font-size
 <summary style="cursor:pointer;color:#8ab4f8">Physics notes (expand)</summary>
 <p style="margin:6px 0 0"><b>Lane step:</b> prefer empty downhill same-<code>kind</code> cells, min sideways offset to gravity line, then shortest along-gravity in tier. <b>Skip rule:</b> skip one mesh row in same column when not on container edge. <b>Wall tip:</b> if no lane step, prefer downhill rotation to boundary cell. <b>Interior tip:</b> otherwise downhill rotation with leftmost tie-break. <b>Wall pivot:</b> if already touching container wall, prefer downhill flip across a wall edge. <b>Lay-flat:</b> on boundary, prefer a downhill flip that increases full-edge wall contact before lane slide. <b>Crash demo:</b> <code>?crash=1</code> or <code>crash-fall-demo.json</code>.</p>
 </details>
-<p style="font-size:.78rem;color:var(--m);margin:6px 0 2px;max-width:980px;width:100%">Telemetry (newest on top) — each line is one Fall click / one board update.</p>
-<pre id="tel">(no messages yet)</pre>
 <div class="tb">
-<span style="display:inline-flex;align-items:center;gap:6px;margin-right:8px;flex-wrap:wrap"><span style="color:var(--m);font-size:.78rem;white-space:nowrap">Container</span><button type="button" id="containerT" title="Top bar + stem (T)">T</button><button type="button" id="containerV" title="Symmetric linear taper (V)">V</button></span>
+<div class="tbGlobal">
+<button type="button" id="tbExpandAll" class="tbMini" title="Open all toolbar groups">Expand all</button>
+<button type="button" id="tbCollapseAll" class="tbMini" title="Collapse all toolbar groups">Collapse all</button>
+</div>
+<details class="tbGroup" open>
+<summary>Board</summary>
+<div class="tbGroupBody">
 <button type="button" id="a0">All OFF</button>
 <button type="button" id="a1">All ON</button>
 <button type="button" id="iv">Invert</button>
 <button type="button" id="tn">Hide numbers</button>
 <button type="button" id="ft">Fall 1 tick</button>
 <button type="button" id="st">Settle</button>
-<label class="shotOpt"><input type="checkbox" id="ssTick"/>Take screenshot per tick</label>
+<button type="button" id="pp" title="Show triangles the engine expects pieces to visit if you Settle (same rules as Fall) — light yellow">Preview path</button>
+<button type="button" id="ct">Clear log</button>
+<button type="button" id="cptel">Copy telemetry</button>
+</div>
+</details>
+<details class="tbGroup" open>
+<summary>Container</summary>
+<div class="tbGroupBody">
+<button type="button" id="containerT" title="Top bar + stem (T)">T</button>
+<button type="button" id="containerV" title="Symmetric linear taper (V)">V</button>
+<button type="button" id="rcw">Rotate 60 CW</button>
+<button type="button" id="rccw">Rotate 60 CCW</button>
+<button type="button" id="cp">Copy JSON</button>
+<label class="fl">Load<input type="file" id="ld" accept="application/json,.json" title="Playground save or editor containerCellMask"/></label>
+</div>
+</details>
+<details class="tbGroup" open>
+<summary>Media & scenarios</summary>
+<div class="tbGroupBody">
+<label class="shotOpt"><input type="checkbox" id="ssTick"/>Screenshot each tick</label>
 <label class="shotOpt">Tag <input type="text" id="ssTag" value="tg" maxlength="24" title="Filename prefix"/></label>
 <button type="button" id="ssReset" title="Reset screenshot counter">Reset shot #</button>
 <button type="button" id="ssNow" title="Capture board screenshot now">Screenshot now</button>
@@ -77,17 +110,18 @@ pre.o{margin-top:8px;padding:12px;background:#0d1117;border-radius:8px;font-size
 <button type="button" id="xFrames" title="Extract PNG frames from an MP4 (requires local bridge)">MP4-&gt;PNG</button>
 <button type="button" id="runScenario" title="Run headless tick scenario and auto-build MP4/GIF (requires local bridge)">Run scenario</button>
 <button type="button" id="proofDemo" class="proofBtn" title="Run short scripted proof animation and print PASS/FAIL in telemetry">Proof demo</button>
+</div>
+</details>
+<details class="tbGroup" open>
+<summary>Bridge & history</summary>
+<div class="tbGroupBody">
 <span id="bridgeStat" class="bridgeBadge off" title="Local media bridge status"><span class="bridgeDot"></span><span id="bridgeStatText">Bridge: offline</span></span>
 <button type="button" id="bridgeRefresh" title="Re-check bridge connection">Check bridge</button>
-<button type="button" id="pp" title="Show triangles the engine expects pieces to visit if you Settle (same rules as Fall) — light yellow">Preview path</button>
+<label class="shotOpt" title="Reload page automatically when Sandbox/index.html changes (requires local bridge)"><input type="checkbox" id="autoRefresh"/>Auto refresh</label>
 <button type="button" id="hb" disabled>&laquo; Back</button>
 <button type="button" id="hf" disabled>Forward &raquo;</button>
-<button type="button" id="ct">Clear log</button>
-<button type="button" id="cptel">Copy telemetry</button>
-<button type="button" id="rcw">Rotate 60 CW</button>
-<button type="button" id="rccw">Rotate 60 CCW</button>
-<button type="button" id="cp">Copy JSON</button>
-<label class="fl">Load<input type="file" id="ld" accept="application/json,.json" title="Playground save or editor containerCellMask"/></label>
+</div>
+</details>
 </div>
 <div class="chatRow">
 <input id="chatCmd" class="chatInp" type="text" placeholder='Try: "light triangle 20 and fall 2 ticks"'/>
@@ -99,9 +133,15 @@ pre.o{margin-top:8px;padding:12px;background:#0d1117;border-radius:8px;font-size
 <p id="histLab">History: 0 / 0</p>
 <div class="sw" id="w"></div>
 <pre class="o" id="o" hidden></pre>
+<div id="telPeek">latest telemetry: (no messages yet)</div>
+<details class="h" style="max-width:980px;width:100%;margin:8px 0 0">
+<summary style="cursor:pointer;color:#8ab4f8;text-align:left">Telemetry (expand)</summary>
+<p style="font-size:.78rem;color:var(--m);margin:6px 0 2px;max-width:980px;width:100%;text-align:left">Newest on top — each line is one Fall click / one board update.</p>
+<pre id="tel">(no messages yet)</pre>
+</details>
 <script>
 (function(){
-var PLAYGROUND_BUILD=90;
+var PLAYGROUND_BUILD=96;
 function applyPlaygroundBuildLabel(){var s="build "+PLAYGROUND_BUILD,e=document.getElementById("pgVer"),t=document.querySelector("title"),bb=document.getElementById("boardBuildBanner");if(e)e.textContent=s;if(t)t.textContent="Triangle playground · "+s;if(bb)bb.textContent="BUILD "+PLAYGROUND_BUILD}
 function boardBuildBannerNode(){var b=document.createElement("div");b.id="boardBuildBanner";b.className="board-build-banner";b.textContent="BUILD "+PLAYGROUND_BUILD;return b}
 function cloneLayoutT(){return{side:34,originX:24,originY:24,gridRows:22,gridCols:26,topBar:{minX:120,maxX:780,minY:40,maxY:220},stem:{minX:330,maxX:570,minY:220,maxY:640}}}
@@ -643,9 +683,12 @@ var snapIdx=0;
 var screenshotTickSeq=0;
 var proofBusy=false;
 var bridgeRemoteLastId=0;
+var autoRefreshTimer=null;
+var autoRefreshLastMtime=0;
+var autoRefreshReloadPending=false;
 var maxTel=400;
 var telLines=[];
-function tel(s){var line=(new Date()).toLocaleTimeString()+"  "+s;telLines.unshift(line);if(telLines.length>maxTel)telLines.length=maxTel;var el=document.getElementById("tel");if(el)el.textContent=telLines.join("\n");}
+function tel(s){var line=(new Date()).toLocaleTimeString()+"  "+s,peekTxt,peek=document.getElementById("telPeek");telLines.unshift(line);if(telLines.length>maxTel)telLines.length=maxTel;var el=document.getElementById("tel");if(el)el.textContent=telLines.join("\n");if(peek){peekTxt=s.length>130?(s.slice(0,127)+"..."):s;peek.textContent="latest telemetry: "+peekTxt;peek.title=line;}}
 function logClick(label){tel("click: "+label);}
 function padNum(n,w){var s=String(Math.max(0,Math.floor(n)));while(s.length<w)s="0"+s;return s;}
 function screenshotTimestampTag(){
@@ -752,6 +795,35 @@ if(!res.ok)throw new Error(data.error||("HTTP "+res.status));
 return data;
 });
 });
+}
+function pollAutoRefresh(prime){
+return bridgeGet("/page-version?path=index.html").then(function(r){
+var m=Number(r&&r.mtimeMs||0);
+if(!m)return false;
+if(prime||!autoRefreshLastMtime){autoRefreshLastMtime=m;return false;}
+if(m>autoRefreshLastMtime+0.5){
+autoRefreshLastMtime=m;
+if(!autoRefreshReloadPending){
+autoRefreshReloadPending=true;
+tel("auto refresh: page change detected, reloading...");
+setTimeout(function(){location.reload();},140);
+}
+return true;
+}
+return false;
+}).catch(function(){return false;});
+}
+function setAutoRefreshEnabled(on){
+var enabled=!!on,ck=document.getElementById("autoRefresh");
+if(autoRefreshTimer){clearInterval(autoRefreshTimer);autoRefreshTimer=null;}
+autoRefreshReloadPending=false;
+if(ck&&ck.checked!==enabled)ck.checked=enabled;
+try{localStorage.setItem("tg_auto_refresh",enabled?"1":"0");}catch(_){}
+if(!enabled){tel("auto refresh: off");return;}
+autoRefreshLastMtime=0;
+tel("auto refresh: on (watching index.html via bridge)");
+pollAutoRefresh(true);
+autoRefreshTimer=setInterval(function(){pollAutoRefresh(false);},1400);
 }
 function currentTickPatternForMedia(){return screenshotPrefix()+"_b"+PLAYGROUND_BUILD+"_tick-*.png";}
 function makeMediaViaBridge(){
@@ -1228,6 +1300,17 @@ return;
 }
 document.getElementById("containerT").onclick=function(){applyContainerPreset("T")};
 document.getElementById("containerV").onclick=function(){applyContainerPreset("V")};
+document.getElementById("tbExpandAll").onclick=function(){
+document.querySelectorAll(".tb .tbGroup").forEach(function(g){g.open=true;});
+logClick("Expand all toolbar groups");
+};
+document.getElementById("tbCollapseAll").onclick=function(){
+document.querySelectorAll(".tb .tbGroup").forEach(function(g){g.open=false;});
+logClick("Collapse all toolbar groups");
+};
+document.getElementById("autoRefresh").onchange=function(){
+setAutoRefreshEnabled(!!this.checked);
+};
 document.getElementById("a0").onclick=function(){logClick("All OFF");truncateToHere();on=new Set();litColorByKey={};clearPathPreview();pushSnapshot("all OFF");R();telExpectFall();};
 document.getElementById("a1").onclick=function(){logClick("All ON");truncateToHere();on=new Set(cells.map(kKey));litColorByKey={};on.forEach(function(kk){assignColorForKey(kk)});clearPathPreview();pushSnapshot("all ON");R();telExpectFall();};
 document.getElementById("iv").onclick=function(){logClick("Invert");truncateToHere();var n2=new Set(),i,t,kk;for(i=0;i<cells.length;i++){t=cells[i];kk=kKey(t);if(!on.has(kk)){n2.add(kk);assignColorForKey(kk)}}on=n2;Object.keys(litColorByKey).forEach(function(kx){if(!on.has(kx))delete litColorByKey[kx]});clearPathPreview();pushSnapshot("invert");R();telExpectFall();};
@@ -1258,7 +1341,7 @@ var j=JSON.stringify({schemaVersion:1,layout:lay,rotationSteps:rotStep,keys:sort
 document.getElementById("o").hidden=false;document.getElementById("o").textContent=j;tel("JSON in panel below; clipboard attempted");if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(j).catch(function(){});};
 document.getElementById("ld").onchange=function(e){var f=e.target.files&&e.target.files[0],r;if(!f)return;logClick("Load "+f.name);r=new FileReader();r.onload=function(){try{loadStateObject(JSON.parse(String(r.result)),{silent:false,clearTelemetry:true,label:"loaded"});}catch(err){alert("Could not load: "+err);}};r.readAsText(f);e.target.value="";};
 applyPlaygroundBuildLabel();
-R();updContainerShapeLab();setBridgeUi(false,"Offline — start with: node Sandbox/media-bridge.cjs");checkBridgeHealth(true);setInterval(function(){checkBridgeHealth(true);},4000);if(!dispatchPollDisabledFromUrl())setInterval(function(){pollBridgeDispatchedCommands();},1200);tel("Ready — Build "+PLAYGROUND_BUILD+" (also on Container line above). Ctrl+F5 if stale.");telExpectFall();
+R();updContainerShapeLab();setBridgeUi(false,"Offline — start with: node Sandbox/media-bridge.cjs");checkBridgeHealth(true);setInterval(function(){checkBridgeHealth(true);},4000);if(!dispatchPollDisabledFromUrl())setInterval(function(){pollBridgeDispatchedCommands();},1200);try{if(localStorage.getItem("tg_auto_refresh")==="1")setAutoRefreshEnabled(true);}catch(_){}tel("Ready — Build "+PLAYGROUND_BUILD+" (also on Container line above). Ctrl+F5 if stale.");telExpectFall();
 })();
 </script>
 </body>

@@ -54,7 +54,13 @@ pre.o{margin-top:8px;padding:12px;background:#0d1117;border-radius:8px;font-size
 <body>
 <h1>Triangle board playground <span id="pgVer" class="pg-ver"></span></h1>
 <p class="h" style="margin-bottom:6px"><a href="editor.html" style="color:#8ab4f8">Container editor</a> — separate page to paint container cell masks and save JSON.</p>
-<p class="h"><b>Sandbox</b> &mdash; Board is a <b>triangular lattice mesh</b>: vertices lie on an equilateral triangle grid; <b>six</b> triangles meet at every interior vertex (same as your reference images). Along a horizontal line through the plane, triangle orientation alternates ▲▼▲▼. <b style="color:#fbbf24">Click</b> cells <b style="color:#4ade80">ON (green)</b>. Each <b>Fall 1 tick</b>: a piece does <b>not</b> slide across an edge to a triangle of the <b>opposite</b> orientation unless there is no same-orientation step (rotation / tip). <b>Lane step:</b> among <b>empty</b> cells with the <b>same</b> <code>kind</code> whose centers are <b>downhill</b> in <code>grav(rotStep)</code>, minimal sideways offset from the gravity line through the piece, then shortest step along gravity in that tier. <b>Skips</b> one mesh row in the same lattice column when the piece is not on the container edge (so the fall &ldquo;jumps&rdquo; the skipped orientation like 13&rarr;83, not 313&rarr;326). <b>Wall tip:</b> if no lane step, prefer a downhill rotation onto a <b>mesh boundary</b> cell (leftmost lateral among boundary flips). <b>Interior tip:</b> otherwise downhill rotation with &ldquo;leftmost&rdquo; lateral tie-break (min dot with <code>rightHat</code>). <b>Wall pivot:</b> when a vertex of the piece already touches the container polygon edge, prefer a downhill flip across an edge whose endpoints lie on that wall (before same-orientation lane skip). <b>Lay-flat:</b> on a mesh-boundary cell, if the container only supports the piece at vertices (not a full edge on the wall), prefer a downhill flip that increases full-edge contact on the container before lane slide. Log ⇔ board. Ids: <code>#a→#b</code>. Blue <code>rN</code> = lattice row index <code>j</code>. <b>Crash demo:</b> <code>?crash=1</code> or <code>crash-fall-demo.json</code>.</p>
+<p class="h"><b>Sandbox</b>: click triangles to light them, then use <b>Fall 1 tick</b> / <b>Settle</b> to test movement rules on a triangular lattice. Telemetry stays synced with board moves (<code>#a&rarr;#b</code>, row labels <code>rN</code>).</p>
+<details class="h" style="max-width:980px;margin:0 0 6px">
+<summary style="cursor:pointer;color:#8ab4f8">Physics notes (expand)</summary>
+<p style="margin:6px 0 0"><b>Lane step:</b> prefer empty downhill same-<code>kind</code> cells, min sideways offset to gravity line, then shortest along-gravity in tier. <b>Skip rule:</b> skip one mesh row in same column when not on container edge. <b>Wall tip:</b> if no lane step, prefer downhill rotation to boundary cell. <b>Interior tip:</b> otherwise downhill rotation with leftmost tie-break. <b>Wall pivot:</b> if already touching container wall, prefer downhill flip across a wall edge. <b>Lay-flat:</b> on boundary, prefer a downhill flip that increases full-edge wall contact before lane slide. <b>Crash demo:</b> <code>?crash=1</code> or <code>crash-fall-demo.json</code>.</p>
+</details>
+<p style="font-size:.78rem;color:var(--m);margin:6px 0 2px;max-width:980px;width:100%">Telemetry (newest on top) — each line is one Fall click / one board update.</p>
+<pre id="tel">(no messages yet)</pre>
 <div class="tb">
 <span style="display:inline-flex;align-items:center;gap:6px;margin-right:8px;flex-wrap:wrap"><span style="color:var(--m);font-size:.78rem;white-space:nowrap">Container</span><button type="button" id="containerT" title="Top bar + stem (T)">T</button><button type="button" id="containerV" title="Symmetric linear taper (V)">V</button></span>
 <button type="button" id="a0">All OFF</button>
@@ -91,8 +97,6 @@ pre.o{margin-top:8px;padding:12px;background:#0d1117;border-radius:8px;font-size
 <p class="h" id="containerShapeLab" style="margin:0 0 4px">Container: (loading…)</p>
 <p class="h" id="rl" style="margin:0 0 4px">Container rotation: 0 deg CW (step 0 of 6)</p>
 <p id="histLab">History: 0 / 0</p>
-<p style="font-size:.78rem;color:var(--m);margin:6px 0 2px;max-width:980px;width:100%">Telemetry (newest on top) — each line is one Fall click / one board update.</p>
-<pre id="tel">(no messages yet)</pre>
 <div class="sw" id="w"></div>
 <pre class="o" id="o" hidden></pre>
 <script>

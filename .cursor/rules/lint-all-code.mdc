@@ -1,0 +1,27 @@
+﻿---
+description: Lint and validate C#, JavaScript, and JSON after substantive edits
+alwaysApply: true
+---
+
+# Lint all code (C#, JavaScript, JSON)
+
+Treat **linting / validation** as part of the same task as the code change—not optional follow-up.
+
+## C# (`*.cs`, `*.csproj`, solution)
+
+- After editing C# or project files: run **`read_lints`** on the touched paths (or project scope) and **fix** reported issues.
+- Run **`dotnet build`** on the relevant project/solution and fix **errors**; do not leave **new** analyzer warnings from your change unless the user explicitly allows it.
+- If the repo uses **`dotnet format`** / analyzers in CI, match that workflow when applicable.
+
+## JavaScript (including inline in HTML)
+
+- **Inline scripts** (e.g. `Sandbox/index.html`): after substantive edits, run **`node Sandbox/headless-preview.cjs`** (or the project’s equivalent full-parse check) so **brace/syntax errors** fail before manual testing.
+- **Standalone** `.js` / `.cjs` / `.mjs`: run **`node --check <file>`** when the change is non-trivial.
+
+## JSON
+
+- After editing JSON: validate with a parser (e.g. **`node -e "JSON.parse(require('fs').readFileSync('absolute/path.json','utf8'))"`**) so **syntax and structure** errors surface immediately.
+
+## Why
+
+Editors may not analyze every embedded script; **without** `read_lints`, `dotnet build`, `node --check`, or `headless-preview`, syntax and schema issues can ship unnoticed.

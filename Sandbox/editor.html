@@ -20,6 +20,7 @@ a{color:#8ab4f8}
 path.tessGrid{fill:none;stroke:rgba(255,255,255,.18);stroke-width:1;stroke-linecap:square;stroke-linejoin:miter;pointer-events:none;shape-rendering:geometricPrecision}
 path.meshOff{fill:var(--off);stroke:var(--off);stroke-width:.65;stroke-linejoin:miter;shape-rendering:geometricPrecision}
 path.meshOn{fill:var(--on);stroke:var(--on);stroke-width:.65;stroke-linejoin:miter;shape-rendering:geometricPrecision}
+line.containerCrosshair{stroke:rgba(138,180,248,.38);stroke-width:1;stroke-linecap:square;pointer-events:none;shape-rendering:geometricPrecision;vector-effect:non-scaling-stroke}
 path.hit{stroke:none;fill:rgba(0,0,0,.02);cursor:pointer}
 path.hit:hover{fill:rgba(255,255,255,.08)}
 .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:center;margin-top:6px}
@@ -30,10 +31,12 @@ input[type=text]{background:#0d1117;border:1px solid #30363d;color:var(--t);padd
 </head>
 <body>
 <h1>Container shape editor <span id="pgVer" class="pg-ver"></span></h1>
-<p class="h">Paint <b>one triangle</b> at a time: <b>drag</b> to turn cells <b style="color:#4ade80">ON</b>; <b>click</b> (no drag) toggles. <a href="index.html">Open playground</a>. Save/load JSON (<code>containerCellMask</code>). Fill uses <b>edge</b> neighbors only (undo if it leaks).</p>
+<p class="h">Paint <b>one triangle</b> at a time: <b>drag</b> to turn cells <b style="color:#4ade80">ON</b>; <b>click</b> (no drag) toggles. <b>Eraser</b> mode: drag or click turns cells <b>OFF</b>. <b>Move shape</b> mode: click inside the filled area and <b>drag</b> to slide the whole mask (stays inside the drawable region). A <b>subtle blue cross</b> aligned to <b>screen vertical/horizontal</b> through the guide center (two lines) updates when you rotate the editor. <a href="index.html">Open playground</a>. Save/load JSON (<code>containerCellMask</code>). Fill uses <b>edge</b> neighbors only (undo if it leaks).</p>
 <div class="tb">
 <button type="button" id="undo" disabled>Undo</button>
 <button type="button" id="clear">Clear shape</button>
+<button type="button" id="paintOrEraserMode" title="Paint adds/toggles ON cells; Eraser removes cells while dragging or clicking">Mode: Paint</button>
+<button type="button" id="moveShapeMode" title="Click a filled triangle and drag to move the entire ON mask as one piece">Move shape: Off</button>
 <button type="button" id="fill">Fill (click seed)</button>
 <button type="button" id="save">Save JSON</button>
 <button type="button" id="rotCCW" title="Rotate editor preview 60° CCW">Rotate 60 CCW</button>
@@ -50,7 +53,7 @@ input[type=text]{background:#0d1117;border:1px solid #30363d;color:var(--t);padd
 <div class="sw" id="w"></div>
 <script>
 (function(){
-var EDITOR_BUILD=8;
+var EDITOR_BUILD=14;
 var M=Math.sqrt(3);
 var SIDE,ORIGIN_X,ORIGIN_Y,GRID_ROWS,GRID_COLS;
 function H(a){return a*M/2}
@@ -135,6 +138,10 @@ function buildGuideKeys(){
   }
   return out
 }
+function guidePolygonCenterXY(){
+  var poly=defaultGuidePolygon();
+  return{x:(poly[0][0]+poly[2][0])/2,y:(poly[0][1]+poly[2][1])/2}
+}
 function setMesh(s,ox,oy,gr,gc){
   SIDE=s;ORIGIN_X=ox;ORIGIN_Y=oy;GRID_ROWS=gr;GRID_COLS=gc;
   cells=buildAllCells();
@@ -147,6 +154,14 @@ setMesh(34,24,24,22,26);
 var onKeys=new Set();
 var undoStack=[];
 var fillMode=false;
+var eraserMode=false;
+var moveContainerMode=false;
+var shapeMoveActive=false;
+var shapeMoveKeys0=null;
+var shapeMoveStartSnap="";
+var shapeMoveAnchorKey="";
+var shapeMoveMeshStartX=0,shapeMoveMeshStartY=0;
+var shapeMovePushedUndo=false;
 var rotStep=0;
 var playgroundView=true;
 var ptrDown=false,ptrStartX,ptrStartY,startKey,dragPaint=false,pushedStrokeUndo=false;
@@ -170,12 +185,86 @@ function syncViewBtn(){
   if(!b)return;
   b.textContent=playgroundView?"View: Playground":"View: Full mesh";
 }
+function syncPaintOrEraserBtn(){
+  var b=document.getElementById("paintOrEraserMode");
+  if(!b)return;
+  b.textContent=eraserMode?"Mode: Eraser":"Mode: Paint";
+}
+function syncMoveShapeBtn(){
+  var b=document.getElementById("moveShapeMode");
+  if(!b)return;
+  b.textContent=moveContainerMode?"Move shape: On":"Move shape: Off";
+}
+function triCentroid(ii,jj,kind){
+  var v=triVertsFromCell(ii,jj,kind,SIDE,ORIGIN_X,ORIGIN_Y);
+  return{x:(v[0].x+v[1].x+v[2].x)/3,y:(v[0].y+v[1].y+v[2].y)/3}
+}
+function eventToRotgLocal(ev){
+  var host=document.getElementById("w");
+  if(!host)return null;
+  var svg=host.querySelector("svg");
+  if(!svg)return null;
+  var rotg=svg.firstElementChild;
+  if(!rotg)return null;
+  var pt=svg.createSVGPoint();
+  pt.x=ev.clientX;
+  pt.y=ev.clientY;
+  var m=rotg.getScreenCTM();
+  if(!m)return null;
+  return pt.matrixTransform(m.inverse())
+}
+function translateKeyByLatticeDelta(k,dI,dJ){
+  var c=cellMap[k];
+  if(!c)return null;
+  return kKey({ti:c.ti+dI,tj:c.tj+dJ,kind:c.kind})
+}
+function translateKeysIfValid(keys,dI,dJ){
+  var out=new Set(),i,nk;
+  for(i=0;i<keys.length;i++){
+    nk=translateKeyByLatticeDelta(keys[i],dI,dJ);
+    if(!nk||!cellMap[nk]||!isDrawableKey(nk))return null;
+    out.add(nk)
+  }
+  if(out.size!==keys.length)return null;
+  return out
+}
+function snapFromKeySet(keySet){return JSON.stringify(Array.from(keySet).sort())}
+function bestTranslatedSetForMeshDelta(keys,anchorKey,meshDx,meshDy){
+  var ac=cellMap[anchorKey];
+  if(!ac||!keys||keys.length===0)return null;
+  var c0=triCentroid(ac.ti,ac.tj,ac.kind);
+  var cI=triCentroid(ac.ti+1,ac.tj,ac.kind);
+  var cJ=triCentroid(ac.ti,ac.tj+1,ac.kind);
+  var vIx=cI.x-c0.x,vIy=cI.y-c0.y;
+  var vJx=cJ.x-c0.x,vJy=cJ.y-c0.y;
+  var det=vIx*vJy-vIy*vJx;
+  var dIf=0,dJf=0;
+  if(Math.abs(det)>1e-9){
+    dIf=(meshDx*vJy-meshDy*vJx)/det;
+    dJf=(vIx*meshDy-vIy*meshDx)/det
+  }
+  var dIo=Math.round(dIf),dJo=Math.round(dJf);
+  var best=null,bestRes=1e30,di,dj,t,res,rx,ry;
+  for(di=dIo-4;di<=dIo+4;di++){
+    for(dj=dJo-4;dj<=dJo+4;dj++){
+      t=translateKeysIfValid(keys,di,dj);
+      if(!t)continue;
+      rx=di*vIx+dj*vJx-meshDx;
+      ry=di*vIy+dj*vJy-meshDy;
+      res=rx*rx+ry*ry;
+      if(res<bestRes){bestRes=res;best=t}
+    }
+  }
+  return best
+}
 function R(){
-  var i,k,tr,path,txt,g,svg,rotg,rcX,rcY,n,dx,dy,d,Rm,Rcell,Rf,framePad,frameYBias,byR,rk,rn,minx,sumy,avgy,j,v0,sub,dOff="",dOn="",oxL=ORIGIN_X,oyL=ORIGIN_Y,a=SIDE,drawCells=drawCellsForView();
+  var i,k,tr,path,txt,g,svg,rotg,rcX,rcY,n,dx,dy,d,Rm,Rcell,Rf,framePad,frameYBias,byR,rk,rn,minx,sumy,avgy,j,v0,sub,dOff="",dOn="",oxL=ORIGIN_X,oyL=ORIGIN_Y,a=SIDE,drawCells=drawCellsForView(),pC,lineLen,hLine,vLine,ang,rad,co,si,pSc,h1,h2,v1,v2,meshToScr,scrToMesh;
   n=drawCells.length;
-  if(!cells.length){document.getElementById("w").innerHTML="<p class=h style=color:var(--m)>No mesh</p>";var lab0=document.getElementById("meshLab");if(lab0)lab0.textContent="Mesh: side="+SIDE+" origin=("+ORIGIN_X+","+ORIGIN_Y+") grid="+GRID_COLS+"×"+GRID_ROWS+" · 0 cells";syncUndoBtn();syncViewBtn();return}
+  if(!cells.length){document.getElementById("w").innerHTML="<p class=h style=color:var(--m)>No mesh</p>";var lab0=document.getElementById("meshLab");if(lab0)lab0.textContent="Mesh: side="+SIDE+" origin=("+ORIGIN_X+","+ORIGIN_Y+") grid="+GRID_COLS+"×"+GRID_ROWS+" · 0 cells";syncUndoBtn();syncViewBtn();syncPaintOrEraserBtn();syncMoveShapeBtn();return}
   rcX=0;rcY=0;for(i=0;i<n;i++){tr=drawCells[i];rcX+=tr.cx;rcY+=tr.cy}
-  rcX/=n;rcY/=n;Rcell=a/Math.sqrt(3);Rm=0;for(i=0;i<n;i++){tr=drawCells[i];dx=tr.cx-rcX;dy=tr.cy-rcY;d=Math.sqrt(dx*dx+dy*dy)+Rcell;if(d>Rm)Rm=d}Rm+=Math.max(8,a*0.22);
+  rcX/=n;rcY/=n;
+  pC=guidePolygonCenterXY();
+  Rcell=a/Math.sqrt(3);Rm=0;for(i=0;i<n;i++){tr=drawCells[i];dx=tr.cx-rcX;dy=tr.cy-rcY;d=Math.sqrt(dx*dx+dy*dy)+Rcell;if(d>Rm)Rm=d}Rm+=Math.max(8,a*0.22);
   framePad=Math.max(16,a*0.75);frameYBias=Math.max(6,a*0.28);Rf=Rm+framePad;
   svg=document.createElementNS("http://www.w3.org/2000/svg","svg");
   svg.setAttribute("width",String(2*Rf));svg.setAttribute("height",String(2*Rf));
@@ -185,6 +274,17 @@ function R(){
   g=rotg.appendChild(document.createElementNS("http://www.w3.org/2000/svg","g"));
   for(i=0;i<drawCells.length;i++){tr=drawCells[i];k=kKey(tr);v0=triVertsFromCell(tr.ti,tr.tj,tr.kind,a,oxL,oyL);sub=pathDFromVerts(v0);if(onKeys.has(k))dOn+=sub;else dOff+=sub}
   if(dOff.length){path=g.appendChild(document.createElementNS("http://www.w3.org/2000/svg","path"));path.setAttribute("class","meshOff");path.setAttribute("d",dOff);path.setAttribute("pointer-events","none")}
+  ang=rotStep*60;rad=ang*Math.PI/180;co=Math.cos(rad);si=Math.sin(rad);
+  meshToScr=function(mx,my){var ux=mx-rcX,uy=my-rcY;return{x:rcX+ux*co+uy*si,y:rcY-ux*si+uy*co}};
+  scrToMesh=function(sx,sy){var dX=sx-rcX,dY=sy-rcY;return{x:rcX+dX*co-dY*si,y:rcY+dX*si+dY*co}};
+  pSc=meshToScr(pC.x,pC.y);
+  lineLen=Rf*2.6;
+  h1=scrToMesh(pSc.x-lineLen,pSc.y);h2=scrToMesh(pSc.x+lineLen,pSc.y);
+  v1=scrToMesh(pSc.x,pSc.y-lineLen);v2=scrToMesh(pSc.x,pSc.y+lineLen);
+  hLine=g.appendChild(document.createElementNS("http://www.w3.org/2000/svg","line"));
+  hLine.setAttribute("class","containerCrosshair");hLine.setAttribute("x1",String(h1.x));hLine.setAttribute("y1",String(h1.y));hLine.setAttribute("x2",String(h2.x));hLine.setAttribute("y2",String(h2.y));
+  vLine=g.appendChild(document.createElementNS("http://www.w3.org/2000/svg","line"));
+  vLine.setAttribute("class","containerCrosshair");vLine.setAttribute("x1",String(v1.x));vLine.setAttribute("y1",String(v1.y));vLine.setAttribute("x2",String(v2.x));vLine.setAttribute("y2",String(v2.y));
   if(dOn.length){path=g.appendChild(document.createElementNS("http://www.w3.org/2000/svg","path"));path.setAttribute("class","meshOn");path.setAttribute("d",dOn);path.setAttribute("pointer-events","none")}
   path=g.appendChild(document.createElementNS("http://www.w3.org/2000/svg","path"));
   path.setAttribute("class","tessGrid");
@@ -209,19 +309,58 @@ function R(){
   syncUndoBtn();
   syncRotLab();
   syncViewBtn();
+  syncPaintOrEraserBtn();
+  syncMoveShapeBtn();
 }
 function onCellPointerDown(k,ev){
+  if(moveContainerMode){
+    if(!onKeys.has(k))return;
+    var lm=eventToRotgLocal(ev);
+    if(!lm)return;
+    shapeMoveActive=true;
+    shapeMoveKeys0=Array.from(onKeys);
+    shapeMoveStartSnap=snap();
+    shapeMoveAnchorKey=k;
+    shapeMoveMeshStartX=lm.x;
+    shapeMoveMeshStartY=lm.y;
+    shapeMovePushedUndo=false;
+    ptrDown=true;
+    ptrStartX=ev.clientX;
+    ptrStartY=ev.clientY;
+    startKey=k;
+    dragPaint=false;
+    pushedStrokeUndo=false;
+    lastPaintKey=null;
+    try{ev.currentTarget.setPointerCapture(ev.pointerId)}catch(e){}
+    return
+  }
   ptrDown=true;ptrStartX=ev.clientX;ptrStartY=ev.clientY;startKey=k;dragPaint=false;pushedStrokeUndo=false;lastPaintKey=null;
   try{ev.currentTarget.setPointerCapture(ev.pointerId)}catch(e){}
 }
 function onCellPointerEnter(k){
+  if(shapeMoveActive)return;
   if(!ptrDown||!dragPaint)return;
   if(!isDrawableKey(k))return;
   if(k===lastPaintKey)return;
   lastPaintKey=k;
-  if(!onKeys.has(k)){onKeys.add(k);R()}
+  if(eraserMode){
+    if(onKeys.has(k)){onKeys.delete(k);R()}
+  }else{
+    if(!onKeys.has(k)){onKeys.add(k);R()}
+  }
 }
 function onCellPointerUp(k,ev){
+  if(shapeMoveActive){
+    shapeMoveActive=false;
+    shapeMoveKeys0=null;
+    shapeMoveAnchorKey="";
+    ptrDown=false;
+    dragPaint=false;
+    pushedStrokeUndo=false;
+    lastPaintKey=null;
+    startKey=null;
+    return
+  }
   if(fillMode){
     if(dragPaint){
       fillMode=false;
@@ -239,14 +378,32 @@ function onCellPointerUp(k,ev){
   if(!ptrDown)return;
   ptrDown=false;
   if(!dragPaint){
-    pushUndo();
     if(!isDrawableKey(startKey)){dragPaint=false;pushedStrokeUndo=false;lastPaintKey=null;startKey=null;return}
-    if(onKeys.has(startKey))onKeys.delete(startKey);else onKeys.add(startKey);
+    if(eraserMode&&!onKeys.has(startKey)){dragPaint=false;pushedStrokeUndo=false;lastPaintKey=null;startKey=null;return}
+    pushUndo();
+    if(eraserMode){
+      onKeys.delete(startKey)
+    }else{
+      if(onKeys.has(startKey))onKeys.delete(startKey);else onKeys.add(startKey)
+    }
     R()
   }
   dragPaint=false;pushedStrokeUndo=false;lastPaintKey=null;startKey=null
 }
 document.addEventListener("pointermove",function(ev){
+  if(shapeMoveActive&&shapeMoveKeys0&&ptrDown){
+    var lm=eventToRotgLocal(ev);
+    if(!lm)return;
+    var meshDx=lm.x-shapeMoveMeshStartX,meshDy=lm.y-shapeMoveMeshStartY;
+    var cand=bestTranslatedSetForMeshDelta(shapeMoveKeys0,shapeMoveAnchorKey,meshDx,meshDy);
+    if(!cand)return;
+    var cs=snapFromKeySet(cand);
+    if(cs===snap())return;
+    if(!shapeMovePushedUndo&&cs!==shapeMoveStartSnap){pushUndo();shapeMovePushedUndo=true}
+    onKeys=cand;
+    R();
+    return
+  }
   if(fillMode)return;
   if(!ptrDown||startKey==null)return;
   var dx=ev.clientX-ptrStartX,dy=ev.clientY-ptrStartY;
@@ -255,7 +412,11 @@ document.addEventListener("pointermove",function(ev){
     dragPaint=true;
     if(!pushedStrokeUndo){pushUndo();pushedStrokeUndo=true}
     if(!isDrawableKey(startKey))return;
-    if(!onKeys.has(startKey))onKeys.add(startKey);
+    if(eraserMode){
+      if(onKeys.has(startKey))onKeys.delete(startKey)
+    }else{
+      if(!onKeys.has(startKey))onKeys.add(startKey)
+    }
     lastPaintKey=startKey;
     R()
   }
@@ -284,7 +445,36 @@ function doFillFromSeed(seedK){
 }
 document.getElementById("undo").onclick=function(){doUndo()};
 document.getElementById("clear").onclick=function(){if(onKeys.size===0)return;pushUndo();onKeys=new Set();R()};
-document.getElementById("fill").onclick=function(){fillMode=!fillMode;this.textContent=fillMode?"Click empty cell to fill (edge-connected)":"Fill (click seed)"};
+document.getElementById("paintOrEraserMode").onclick=function(){
+  eraserMode=!eraserMode;
+  moveContainerMode=false;
+  if(eraserMode){
+    fillMode=false;
+    document.getElementById("fill").textContent="Fill (click seed)"
+  }
+  syncPaintOrEraserBtn();
+  syncMoveShapeBtn()
+};
+document.getElementById("moveShapeMode").onclick=function(){
+  moveContainerMode=!moveContainerMode;
+  if(moveContainerMode){
+    fillMode=false;
+    document.getElementById("fill").textContent="Fill (click seed)";
+    eraserMode=false
+  }
+  syncPaintOrEraserBtn();
+  syncMoveShapeBtn()
+};
+document.getElementById("fill").onclick=function(){
+  fillMode=!fillMode;
+  if(fillMode){
+    eraserMode=false;
+    moveContainerMode=false
+  }
+  this.textContent=fillMode?"Click empty cell to fill (edge-connected)":"Fill (click seed)";
+  syncPaintOrEraserBtn();
+  syncMoveShapeBtn()
+};
 document.getElementById("rotCW").onclick=function(){rotStep=(rotStep+1)%6;R()};
 document.getElementById("rotCCW").onclick=function(){rotStep=(rotStep+5)%6;R()};
 document.getElementById("rotReset").onclick=function(){rotStep=0;R()};

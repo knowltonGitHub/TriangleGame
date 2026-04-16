@@ -61,7 +61,6 @@ pre.o{margin-top:8px;padding:12px;background:#0d1117;border-radius:8px;font-size
 .pg-ver{font-size:.72rem;color:#8ab4f8;font-weight:700;margin-left:10px;white-space:nowrap}
 .chatRow{display:flex;gap:8px;max-width:min(100%,980px);width:100%;margin:6px 0 8px}
 .chatInp{flex:1;background:#1f232a;color:var(--t);border:1px solid #5f6368;border-radius:8px;padding:9px 10px;font-size:.86rem}
-.chatHint{font-size:.78rem;color:var(--m);max-width:min(100%,980px);width:100%;margin:0 0 6px}
 .ftFloatStack{position:fixed;right:12px;z-index:1200;display:flex;flex-direction:column;gap:8px;align-items:stretch;width:max-content;max-width:min(220px,calc(100vw - 24px))}
 .ftFloatStackTop{top:12px}
 .ftFloatStackBottom{bottom:12px}
@@ -84,7 +83,7 @@ text.fallChoiceCaption{pointer-events:none;font-size:11px;font-weight:700;fill:#
 <p class="h"><b>Sandbox</b>: click triangles to light them, then use <b>Fall 1 tick</b> / <b>Settle</b> to test movement rules on a triangular lattice. Telemetry stays synced with board moves (<code>#a&rarr;#b</code>, row labels <code>rN</code>).</p>
 <details class="h" style="max-width:980px;margin:0 0 6px">
 <summary style="cursor:pointer;color:#8ab4f8">Physics notes (expand)</summary>
-<p style="margin:6px 0 0"><b>Lane step:</b> prefer empty downhill same-<code>kind</code> cells, min sideways offset to gravity line, then shortest along-gravity in tier. <b>Skip rule:</b> skip one mesh row in same column when not on container edge. <b>Wall tip:</b> if no lane step, prefer downhill rotation to boundary cell. <b>Interior tip:</b> otherwise downhill rotation with leftmost tie-break. <b>Wall pivot:</b> if already touching container wall, prefer downhill flip across a wall edge. <b>Lay-flat:</b> on boundary, prefer a downhill flip that increases full-edge wall contact before lane slide. <b>Crash demo:</b> <code>?crash=1</code> or <code>crash-fall-demo.json</code>.</p>
+<p style="margin:6px 0 0"><b>Lane step:</b> empty downhill same-<code>kind</code> cells, min <code>|cross|</code> to gravity line; tier ties: min <code>|lateral|</code>, then +<b>rightPerp</b>, then along-gravity (removed old interior same-column exclusion so the mesh “below” cell can compete). <b>Opposite-kind flips (wall / interior / sight):</b> same <code>|cross|</code> / along ties prefer maximum <b>+rightPerp</b>. <b>Wall tip:</b> downhill rotation to boundary cell. <b>Interior tip:</b> +rightPerp among interior flips. <b>Wall pivot:</b> downhill flip across a wall edge. <b>Lay-flat:</b> on boundary, more wall contact before lane slide. <b>Crash demo:</b> <code>?crash=1</code> or <code>crash-fall-demo.json</code>.</p>
 </details>
 <div class="tb">
 <div class="tbGlobal">
@@ -110,8 +109,8 @@ text.fallChoiceCaption{pointer-events:none;font-size:11px;font-weight:700;fill:#
 <details class="tbGroup" open>
 <summary>Container</summary>
 <div class="tbGroupBody">
-<button type="button" id="containerPresetShapeTButton" title="Top bar + stem (T)">T</button>
-<button type="button" id="containerPresetShapeVButton" title="Symmetric linear taper (V)">V</button>
+<button type="button" id="containerPresetShapeTButton" title="Load container from Sandbox/presets/container-default-T.json">T</button>
+<button type="button" id="containerPresetShapeVButton" title="Load container from Sandbox/presets/container-default-V.json">V</button>
 <button type="button" id="rotateContainerClockwiseButton" title="Rotate container 60 degrees clockwise">Rotate 60 CW</button>
 <button type="button" id="rotateContainerCounterclockwiseButton" title="Rotate container 60 degrees counterclockwise">Rotate 60 CCW</button>
 <button type="button" id="copyBoardStateJsonButton" title="Copy current board state JSON">Copy JSON</button>
@@ -152,7 +151,6 @@ text.fallChoiceCaption{pointer-events:none;font-size:11px;font-weight:700;fill:#
 <input id="playgroundCommandLineInput" class="chatInp" type="text" placeholder='Try: "light triangle 20 and fall 2 ticks"'/>
 <button type="button" id="runPlaygroundCommandButton" title="Run command from text">Run Command</button>
 </div>
-<p class="chatHint">Command box supports: <code>light triangle 20</code>, <code>fall 2 ticks</code>, <code>fall 2 ticks with 3 second delay between ticks</code>, <code>light triangle 20 and fall 2 ticks</code>, <code>settle</code>, <code>all off</code>.</p>
 <p class="h" id="containerShapeSummaryLabel" style="margin:0 0 4px">Container: (loading…)</p>
 <p class="h" id="containerRotationSummaryLabel" style="margin:0 0 4px">Container rotation: 0 deg CW (step 0 of 6)</p>
 <p id="historySnapshotPositionLabel">History: 0 / 0</p>
@@ -178,14 +176,60 @@ text.fallChoiceCaption{pointer-events:none;font-size:11px;font-weight:700;fill:#
 <button type="button" id="floatingFallOneTickBottomButton" class="ftFloat iconBtn" title="Advance simulation by one fall tick"><span>Fall 1 Tick</span></button>
 <button type="button" id="floatingHistoryForwardBottomButton" class="ftFloat ftFloatAux iconBtn" title="Go to next history snapshot" disabled><span>Forward &raquo;</span></button>
 </div>
+<script src="presets/playground-default-presets.js"></script>
 <script>
 (function(){
-var PLAYGROUND_BUILD=126;
+var PLAYGROUND_BUILD=145;
 function applyPlaygroundBuildLabel(){var buildLabelText="build "+PLAYGROUND_BUILD,versionElement=document.getElementById("playgroundBuildVersionLabel"),documentTitleElement=document.querySelector("title"),boardBannerElement=document.getElementById("boardBuildBanner");if(versionElement)versionElement.textContent=buildLabelText;if(documentTitleElement)documentTitleElement.textContent="Triangle playground · "+buildLabelText;if(boardBannerElement)boardBannerElement.textContent="BUILD "+PLAYGROUND_BUILD}
 function boardBuildBannerNode(){var bannerElement=document.createElement("div");bannerElement.id="boardBuildBanner";bannerElement.className="board-build-banner";bannerElement.textContent="BUILD "+PLAYGROUND_BUILD;return bannerElement}
-function cloneLayoutT(){return{side:34,originX:24,originY:24,gridRows:22,gridCols:26,topBar:{minX:120,maxX:780,minY:40,maxY:220},stem:{minX:330,maxX:570,minY:220,maxY:640}}}
-function cloneLayoutV(){var centerX=450,topY=40,bottomY=640,halfWidth=330;return{side:34,originX:120,originY:40,gridRows:22,gridCols:26,topBar:{minX:120,maxX:780,minY:40,maxY:220},stem:{minX:330,maxX:570,minY:220,maxY:640},containerPolygon:[[centerX-halfWidth,topY],[centerX+halfWidth,topY],[centerX,bottomY]]}}
-var layoutSpec=cloneLayoutT();
+/* Must match Sandbox/editor.html setMesh(...) — max mesh the editor can save as containerCellMask */
+var EDITOR_MESH_SIDE=34;
+var EDITOR_MESH_ORIGIN_X=24;
+var EDITOR_MESH_ORIGIN_Y=24;
+var EDITOR_MESH_MAX_GRID_ROWS=22;
+var EDITOR_MESH_MAX_GRID_COLS=26;
+function parseLatticeKeyTriple(keyString){
+if(typeof keyString!=="string")return null;
+var parts=keyString.split(",");
+if(parts.length!==3)return null;
+var ti=parseInt(parts[0],10),tj=parseInt(parts[1],10),kind=parseInt(parts[2],10);
+if(!Number.isFinite(ti)||!Number.isFinite(tj)||!Number.isFinite(kind))return null;
+return{ti:ti,tj:tj,kind:kind};
+}
+function cellMaskKeysFitDeclaredMesh(gridCols,gridRows,keysArray){
+if(!keysArray||!keysArray.length)return true;
+var i,p;
+for(i=0;i<keysArray.length;i++){
+p=parseLatticeKeyTriple(keysArray[i]);
+if(!p)return false;
+if(p.kind!==0&&p.kind!==1)return false;
+if(p.ti<0||p.tj<0||p.ti>=gridCols||p.tj>=gridRows)return false;
+}
+return true;
+}
+function editorContainerCellMaskMeshOk(meshRecord){
+if(!meshRecord||typeof meshRecord!=="object")return false;
+if(typeof meshRecord.side!=="number"||typeof meshRecord.gridRows!=="number"||typeof meshRecord.gridCols!=="number")return false;
+var ox=typeof meshRecord.originX==="number"?meshRecord.originX:EDITOR_MESH_ORIGIN_X;
+var oy=typeof meshRecord.originY==="number"?meshRecord.originY:EDITOR_MESH_ORIGIN_Y;
+if(meshRecord.side!==EDITOR_MESH_SIDE)return false;
+if(ox!==EDITOR_MESH_ORIGIN_X||oy!==EDITOR_MESH_ORIGIN_Y)return false;
+if(meshRecord.gridRows>EDITOR_MESH_MAX_GRID_ROWS||meshRecord.gridCols>EDITOR_MESH_MAX_GRID_COLS)return false;
+if(meshRecord.gridRows<1||meshRecord.gridCols<1)return false;
+return true;
+}
+function layoutMeshWithinEditorLimits(layout){
+if(!layout||typeof layout!=="object")return false;
+if(typeof layout.side!=="number"||typeof layout.gridRows!=="number"||typeof layout.gridCols!=="number")return false;
+if(layout.side>EDITOR_MESH_SIDE||layout.gridRows>EDITOR_MESH_MAX_GRID_ROWS||layout.gridCols>EDITOR_MESH_MAX_GRID_COLS)return false;
+if(layout.side<1||layout.gridRows<1||layout.gridCols<1)return false;
+if(layout.cellMaskKeys&&Array.isArray(layout.cellMaskKeys)&&layout.cellMaskKeys.length&&!cellMaskKeysFitDeclaredMesh(layout.gridCols,layout.gridRows,layout.cellMaskKeys))return false;
+return true;
+}
+var CONTAINER_PRESET_FILE_T="presets/container-default-T.json";
+var CONTAINER_PRESET_FILE_V="presets/container-default-V.json";
+var containerPresetMaskObjectT=null;
+var containerPresetMaskObjectV=null;
 var sqrt3=Math.sqrt(3);
 function equilateralTriangleHalfHeight(sideLength){return sideLength*sqrt3/2}
 function roundCoord6(value){return Math.round(value*1e6)/1e6}
@@ -199,7 +243,7 @@ function vertsForCellMap(cellRecord){return triVertsFromCell(cellRecord.latticeC
 function pointInEitherRectangle(pointX,pointY,firstRectangle,secondRectangle){return(pointX>=firstRectangle.minX&&pointX<=firstRectangle.maxX&&pointY>=firstRectangle.minY&&pointY<=firstRectangle.maxY)||(pointX>=secondRectangle.minX&&pointX<=secondRectangle.maxX&&pointY>=secondRectangle.minY&&pointY<=secondRectangle.maxY)}
 function pointInVShapeLayout(centerX,centerY,vShape){if(centerY<vShape.minY||centerY>vShape.maxY)return false;var verticalBlend=(centerY-vShape.minY)/(vShape.maxY-vShape.minY),halfWidth=vShape.halfWidthTop*(1-verticalBlend)+vShape.halfWidthBottom*verticalBlend;return Math.abs(centerX-vShape.centerX)<=halfWidth}
 function pointInPolygon(pointX,pointY,polygonVertices){var windingNumber=0,polyVertexCount=polygonVertices.length,edgeIndex,polygonVertexA,polygonVertexB,cross2d;for(edgeIndex=0;edgeIndex<polyVertexCount;edgeIndex++){polygonVertexA=polygonVertices[edgeIndex];polygonVertexB=polygonVertices[(edgeIndex+1)%polyVertexCount];cross2d=(polygonVertexB[0]-polygonVertexA[0])*(pointY-polygonVertexA[1])-(pointX-polygonVertexA[0])*(polygonVertexB[1]-polygonVertexA[1]);if(polygonVertexA[1]<=pointY){if(polygonVertexB[1]>pointY&&cross2d>0)windingNumber++}else{if(polygonVertexB[1]<=pointY&&cross2d<0)windingNumber--}}return windingNumber!==0}
-/* CONTAINER-POLYGON CONTRACT (do not change without explicit maintainer OK): When layout.containerPolygon is set, the visible mesh must be whole lattice triangles only—each cell is included iff all three of its vertices lie inside the polygon (pointInPolygonInclusive). Do not replace this with centroid-only, any-vertex, or edge-crossing rules; that reintroduces partial triangles and a broken silhouette. Do not “fix” appearance with a separate SVG outline on top. Related: distToSeg, build() polygon branch, cloneLayoutV containerPolygon. */
+/* CONTAINER-POLYGON CONTRACT (do not change without explicit maintainer OK): When layout.containerPolygon is set, the visible mesh must be whole lattice triangles only—each cell is included iff all three of its vertices lie inside the polygon (pointInPolygonInclusive). Do not replace this with centroid-only, any-vertex, or edge-crossing rules; that reintroduces partial triangles and a broken silhouette. Do not “fix” appearance with a separate SVG outline on top. Related: distToSeg, build() polygon branch. */
 function distToSeg(pointX,pointY,segmentAx,segmentAy,segmentBx,segmentBy){var segmentDirX=segmentBx-segmentAx,segmentDirY=segmentBy-segmentAy,pointRelX=pointX-segmentAx,pointRelY=pointY-segmentAy,segmentLengthSq=segmentDirX*segmentDirX+segmentDirY*segmentDirY||1e-30,projectionT=Math.max(0,Math.min(1,(pointRelX*segmentDirX+pointRelY*segmentDirY)/segmentLengthSq)),closestX=segmentAx+projectionT*segmentDirX,closestY=segmentAy+projectionT*segmentDirY;return Math.hypot(pointX-closestX,pointY-closestY)}
 function pointInPolygonInclusive(pointX,pointY,polygonVertices,epsilon){var edgeIndex,edgeDistance,polyVertexCount=polygonVertices.length;if(pointInPolygon(pointX,pointY,polygonVertices))return true;for(edgeIndex=0;edgeIndex<polyVertexCount;edgeIndex++){edgeDistance=distToSeg(pointX,pointY,polygonVertices[edgeIndex][0],polygonVertices[edgeIndex][1],polygonVertices[(edgeIndex+1)%polyVertexCount][0],polygonVertices[(edgeIndex+1)%polyVertexCount][1]);if(edgeDistance<=epsilon)return true}return false}
 function pointInLayoutContainer(layout,centerX,centerY){if(layout.containerPolygon&&layout.containerPolygon.length>=3)return pointInPolygon(centerX,centerY,layout.containerPolygon);if(layout.vShape&&typeof layout.vShape.centerX==="number"&&typeof layout.vShape.halfWidthTop==="number")return pointInVShapeLayout(centerX,centerY,layout.vShape);return pointInEitherRectangle(centerX,centerY,layout.topBar,layout.stem)}
@@ -245,23 +289,40 @@ if(vShapeRecord)mergedLayout.vShape=vShapeRecord;
 if(containerPolygonPoints)mergedLayout.containerPolygon=containerPolygonPoints;
 if(Array.isArray(layoutObject.cellMaskKeys))mergedLayout.cellMaskKeys=layoutObject.cellMaskKeys.slice();
 if(layoutObject.fallCrashDemo===true)mergedLayout.fallCrashDemo=true;
+if(!layoutMeshWithinEditorLimits(mergedLayout))return null;
 return mergedLayout;
 }
 function layoutFromCellMaskFile(maskFileObject){
-var meshRecord,maskedCellKeyList;
+var meshRecord,maskedCellKeyList,keyIndex,rawKeys,sideN,grN,gcN,oxN,oyN;
 if(!maskFileObject||typeof maskFileObject!=="object")return null;
-if(maskFileObject.kind!=="containerCellMask"||!maskFileObject.mesh)return null;
+if(String(maskFileObject.kind)!=="containerCellMask"||!maskFileObject.mesh)return null;
 meshRecord=maskFileObject.mesh;
-if(typeof meshRecord.side!=="number"||typeof meshRecord.gridRows!=="number"||typeof meshRecord.gridCols!=="number")return null;
-maskedCellKeyList=Array.isArray(maskFileObject.keys)?maskFileObject.keys:[];
-return{side:meshRecord.side,originX:typeof meshRecord.originX==="number"?meshRecord.originX:24,originY:typeof meshRecord.originY==="number"?meshRecord.originY:24,gridRows:meshRecord.gridRows,gridCols:meshRecord.gridCols,cellMaskKeys:maskedCellKeyList,topBar:{minX:-1e9,maxX:1e9,minY:-1e9,maxY:1e9},stem:{minX:-1e9,maxX:1e9,minY:-1e9,maxY:1e9}};
+if(!meshRecord||typeof meshRecord!=="object")return null;
+sideN=Number(meshRecord.side);grN=Number(meshRecord.gridRows);gcN=Number(meshRecord.gridCols);
+oxN=Number(meshRecord.originX);oyN=Number(meshRecord.originY);
+if(!Number.isFinite(sideN)||!Number.isFinite(grN)||!Number.isFinite(gcN))return null;
+if(!Number.isFinite(oxN))oxN=EDITOR_MESH_ORIGIN_X;
+if(!Number.isFinite(oyN))oyN=EDITOR_MESH_ORIGIN_Y;
+meshRecord={side:sideN,gridRows:grN,gridCols:gcN,originX:oxN,originY:oyN};
+if(!editorContainerCellMaskMeshOk(meshRecord))return null;
+rawKeys=Array.isArray(maskFileObject.keys)?maskFileObject.keys:[];
+maskedCellKeyList=[];for(keyIndex=0;keyIndex<rawKeys.length;keyIndex++)maskedCellKeyList.push(String(rawKeys[keyIndex]));
+if(!cellMaskKeysFitDeclaredMesh(meshRecord.gridCols,meshRecord.gridRows,maskedCellKeyList))return null;
+return{side:meshRecord.side,originX:meshRecord.originX,originY:meshRecord.originY,gridRows:meshRecord.gridRows,gridCols:meshRecord.gridCols,cellMaskKeys:maskedCellKeyList,topBar:{minX:-1e9,maxX:1e9,minY:-1e9,maxY:1e9},stem:{minX:-1e9,maxX:1e9,minY:-1e9,maxY:1e9}};
 }
+function emptyEditorMeshLayout(){return{side:EDITOR_MESH_SIDE,originX:EDITOR_MESH_ORIGIN_X,originY:EDITOR_MESH_ORIGIN_Y,gridRows:EDITOR_MESH_MAX_GRID_ROWS,gridCols:EDITOR_MESH_MAX_GRID_COLS,cellMaskKeys:[],topBar:{minX:-1e9,maxX:1e9,minY:-1e9,maxY:1e9},stem:{minX:-1e9,maxX:1e9,minY:-1e9,maxY:1e9}}}
+function layoutFromCachedPreset(whichIsV){var obj=whichIsV?containerPresetMaskObjectV:containerPresetMaskObjectT;return obj?layoutFromCellMaskFile(obj):null}
+function bootstrapPresetCacheFromScriptBundle(){var bag=typeof globalThis!=="undefined"&&globalThis.__TG_CONTAINER_PRESETS__;if(!bag)return;if(bag.T&&layoutFromCellMaskFile(bag.T))containerPresetMaskObjectT=bag.T;if(bag.V&&layoutFromCellMaskFile(bag.V))containerPresetMaskObjectV=bag.V}
+function rawPresetFromScriptBundle(whichLetter){var bag=typeof globalThis!=="undefined"&&globalThis.__TG_CONTAINER_PRESETS__;if(!bag)return null;return whichLetter==="V"?bag.V:bag.T}
+bootstrapPresetCacheFromScriptBundle();
+var layoutSpec=emptyEditorMeshLayout();
 function rebuildNeigh(){var sharedEdgeMap=new Map(),allCellKeys=Object.keys(cellMap),outerIndex,edgeSlot,edgeKeyString,cellKey,triangleVertexList,neighborListIndex,cellsSharingEdge,dedupeSeen;for(outerIndex=0;outerIndex<allCellKeys.length;outerIndex++){cellKey=allCellKeys[outerIndex];triangleVertexList=vertsForCellMap(cellMap[cellKey]);for(edgeSlot=0;edgeSlot<3;edgeSlot++){var edgeVertexA=triangleVertexList[edgeSlot],edgeVertexB=triangleVertexList[(edgeSlot+1)%3];edgeKeyString=edgeKeyVerts(edgeVertexA,edgeVertexB);if(!sharedEdgeMap.has(edgeKeyString))sharedEdgeMap.set(edgeKeyString,[]);sharedEdgeMap.get(edgeKeyString).push(cellKey)}}for(outerIndex=0;outerIndex<allCellKeys.length;outerIndex++){cellKey=allCellKeys[outerIndex];neigh[cellKey]=[];triangleVertexList=vertsForCellMap(cellMap[cellKey]);for(edgeSlot=0;edgeSlot<3;edgeSlot++){var edgeVertexA2=triangleVertexList[edgeSlot],edgeVertexB2=triangleVertexList[(edgeSlot+1)%3];edgeKeyString=edgeKeyVerts(edgeVertexA2,edgeVertexB2);cellsSharingEdge=sharedEdgeMap.get(edgeKeyString)||[];for(neighborListIndex=0;neighborListIndex<cellsSharingEdge.length;neighborListIndex++)if(cellsSharingEdge[neighborListIndex]!==cellKey)neigh[cellKey].push(cellsSharingEdge[neighborListIndex])}dedupeSeen={};for(neighborListIndex=0;neighborListIndex<neigh[cellKey].length;neighborListIndex++)dedupeSeen[neigh[cellKey][neighborListIndex]]=1;neigh[cellKey]=Object.keys(dedupeSeen)}}
 function rebuildCellBoundary(){var sharedEdgeMap=new Map(),allCellKeys=Object.keys(cellMap),outerIndex,edgeSlot,edgeKeyString,cellKey,triangleVertexList,cellsSharingEdge;for(outerIndex=0;outerIndex<allCellKeys.length;outerIndex++){cellKey=allCellKeys[outerIndex];triangleVertexList=vertsForCellMap(cellMap[cellKey]);for(edgeSlot=0;edgeSlot<3;edgeSlot++){var edgeVertexA=triangleVertexList[edgeSlot],edgeVertexB=triangleVertexList[(edgeSlot+1)%3];edgeKeyString=edgeKeyVerts(edgeVertexA,edgeVertexB);if(!sharedEdgeMap.has(edgeKeyString))sharedEdgeMap.set(edgeKeyString,[]);sharedEdgeMap.get(edgeKeyString).push(cellKey)}}cellBoundary={};for(outerIndex=0;outerIndex<allCellKeys.length;outerIndex++){cellKey=allCellKeys[outerIndex];triangleVertexList=vertsForCellMap(cellMap[cellKey]);for(edgeSlot=0;edgeSlot<3;edgeSlot++){var edgeVertexA2=triangleVertexList[edgeSlot],edgeVertexB2=triangleVertexList[(edgeSlot+1)%3];edgeKeyString=edgeKeyVerts(edgeVertexA2,edgeVertexB2);cellsSharingEdge=sharedEdgeMap.get(edgeKeyString)||[];if(cellsSharingEdge.length===1){cellBoundary[cellKey]=1;break}}}}
 function rebuildVertexNeigh(){var allCellKeys=Object.keys(cellMap),outerIndex,vertexSlot,cellKey,vertexCoordKey,neighborKeysForVertex,triangleVertices,vertexPositionMap=new Map(),vertexNeighborResult={},dedupeNeighborKeys;for(outerIndex=0;outerIndex<allCellKeys.length;outerIndex++){cellKey=allCellKeys[outerIndex];triangleVertices=vertsForCellMap(cellMap[cellKey]);for(vertexSlot=0;vertexSlot<3;vertexSlot++){vertexCoordKey=triangleVertices[vertexSlot].x+","+triangleVertices[vertexSlot].y;if(!vertexPositionMap.has(vertexCoordKey))vertexPositionMap.set(vertexCoordKey,[]);vertexPositionMap.get(vertexCoordKey).push(cellKey)}}for(outerIndex=0;outerIndex<allCellKeys.length;outerIndex++){cellKey=allCellKeys[outerIndex];triangleVertices=vertsForCellMap(cellMap[cellKey]);dedupeNeighborKeys={};for(vertexSlot=0;vertexSlot<3;vertexSlot++){vertexCoordKey=triangleVertices[vertexSlot].x+","+triangleVertices[vertexSlot].y;neighborKeysForVertex=vertexPositionMap.get(vertexCoordKey)||[];neighborKeysForVertex.forEach(function(otherCellKey){if(otherCellKey!==cellKey)dedupeNeighborKeys[otherCellKey]=1;});}vertexNeighborResult[cellKey]=Object.keys(dedupeNeighborKeys);}vertexNeigh=vertexNeighborResult;}
 function rebuildWorldFromLayout(nextLayout){var cellIndex;layoutSpec=nextLayout;cells=build(layoutSpec);cellSideLength=layoutSpec.side;cellMap={};for(cellIndex=0;cellIndex<cells.length;cellIndex++)cellMap[latticeKeyFromTriangleRecord(cells[cellIndex])]=cells[cellIndex];neigh={};rebuildNeigh();rebuildCellBoundary();rebuildVertexNeigh();rebuildLabelIndex()}
 var cells,cellSideLength,cellMap,neigh={},cellBoundary={},vertexNeigh={};
 rebuildWorldFromLayout(layoutSpec);
+if(typeof globalThis!=="undefined"&&globalThis.__TG_HEADLESS_SIM__===true&&typeof globalThis.require==="function"&&typeof globalThis.__dirname==="string"){try{var fsHeadless=globalThis.require("fs"),pathHeadless=globalThis.require("path");var presetDir=pathHeadless.join(globalThis.__dirname,"presets");containerPresetMaskObjectT=JSON.parse(fsHeadless.readFileSync(pathHeadless.join(presetDir,"container-default-T.json"),"utf8"));containerPresetMaskObjectV=JSON.parse(fsHeadless.readFileSync(pathHeadless.join(presetDir,"container-default-V.json"),"utf8"));var headlessDefaultT=layoutFromCellMaskFile(containerPresetMaskObjectT);if(headlessDefaultT)rebuildWorldFromLayout(headlessDefaultT);}catch(_headlessPresetErr){}}
 var HEADLESS_SIM=typeof globalThis!=="undefined"&&globalThis.__TG_HEADLESS_SIM__===true;
 function fallCrashDemoFromUrl(){try{if(typeof location==="undefined"||!location.search)return false;return new URLSearchParams(location.search).get("crash")==="1"}catch(_urlParseError){return false}}
 function dispatchPollDisabledFromUrl(){try{if(typeof location==="undefined"||!location.search)return false;return new URLSearchParams(location.search).get("nodispatch")==="1"}catch(_urlParseError){return false}}
@@ -432,11 +493,24 @@ for(vertexSlot=0;vertexSlot<3;vertexSlot++)for(polygonEdgeIndex=0;polygonEdgeInd
 return minDistanceToWall;
 }
 function buildTriangleSight(pieceCellKey,occupiedKeysSet,gravity,rightPerpHat,epsilon){
-var pieceCell=cellMap[pieceCellKey],edgeNeighborKeys,vertexNeighborKeys,neighborIdx,neighborKey,neighborCell,deltaX,deltaY,alongGravity,crossFromGravity,absCross,lateralSeparationAbs;
-var laneNearestOccupiedKey=null,laneNearestCross=1e30,laneNearestAlong=1e30,laneNearestFreeKey=null,laneFreeBestCross=1e30,laneFreeBestAlong=1e30;
-var edgeVision=[],litEdgeNeighborKeys=[],darkEdgeNeighborKeys=[],vertexVision=[],litVertexNeighborKeys=[],darkVertexNeighborKeys=[],bestOppositeFlipKey=null,bestFlipCross=1e30,bestFlipAlong=-1e30,bestFlipLateral=1e30;
+var pieceCell=cellMap[pieceCellKey],edgeNeighborKeys,vertexNeighborKeys,neighborIdx,neighborKey,neighborCell,deltaX,deltaY,alongGravity,crossFromGravity,absCross,lateralSeparationAbs,lateralSigned,laneBlockedNearest,betterFlip;
+var laneNearestOccupiedKey=null,laneNearestCross=1e30,laneNearestAlong=1e30,laneNearestLateralSigned=-1e30,laneNearestFreeKey=null,laneFreeBestCross=1e30,laneFreeBestAlong=1e30,laneFreeBestLateralSigned=-1e30;/* same-kind lane: min |cross| tier; tie: min |lateral| then +rightPerp then along (no same-column row exclusion) */
+var edgeVision=[],litEdgeNeighborKeys=[],darkEdgeNeighborKeys=[],vertexVision=[],litVertexNeighborKeys=[],darkVertexNeighborKeys=[],bestOppositeFlipKey=null,bestFlipCross=1e30,bestFlipAlong=-1e30,bestFlipLateral=1e30,bestFlipLateralSigned=0;
 var sameKindScanIdx,sameKindCell,sameKindKey;
 if(!pieceCell)return null;
+for(sameKindScanIdx=0;sameKindScanIdx<cells.length;sameKindScanIdx++){
+sameKindCell=cells[sameKindScanIdx];sameKindKey=latticeKeyFromTriangleRecord(sameKindCell);if(sameKindCell.triangleOrientationKind!==pieceCell.triangleOrientationKind)continue;
+deltaX=sameKindCell.cx-pieceCell.cx;deltaY=sameKindCell.cy-pieceCell.cy;alongGravity=deltaX*gravity.gx+deltaY*gravity.gy;if(alongGravity<=epsilon)continue;
+crossFromGravity=deltaX*(-gravity.gy)+deltaY*gravity.gx;absCross=Math.abs(crossFromGravity);lateralSigned=deltaX*rightPerpHat.gx+deltaY*rightPerpHat.gy;
+(function(){var absLatNew=Math.abs(lateralSigned),absLatOcc=Math.abs(laneNearestLateralSigned);
+if(laneNearestOccupiedKey===null||absCross<laneNearestCross-epsilon||(Math.abs(absCross-laneNearestCross)<1e-9&&(absLatNew<absLatOcc-epsilon||(Math.abs(absLatNew-absLatOcc)<1e-9&&(lateralSigned>laneNearestLateralSigned+epsilon||(Math.abs(lateralSigned-laneNearestLateralSigned)<1e-9&&(alongGravity<laneNearestAlong-epsilon||(Math.abs(alongGravity-laneNearestAlong)<1e-9&&compareLatticeKeys(sameKindKey,laneNearestOccupiedKey)<0)))))))){laneNearestOccupiedKey=sameKindKey;laneNearestCross=absCross;laneNearestAlong=alongGravity;laneNearestLateralSigned=lateralSigned;}
+})();
+if(occupiedKeysSet.has(sameKindKey))continue;
+(function(){var absLatNew=Math.abs(lateralSigned),absLatFree=Math.abs(laneFreeBestLateralSigned);
+if(laneNearestFreeKey===null||absCross<laneFreeBestCross-epsilon||(Math.abs(absCross-laneFreeBestCross)<1e-9&&(absLatNew<absLatFree-epsilon||(Math.abs(absLatNew-absLatFree)<1e-9&&(lateralSigned>laneFreeBestLateralSigned+epsilon||(Math.abs(lateralSigned-laneFreeBestLateralSigned)<1e-9&&(alongGravity<laneFreeBestAlong-epsilon||(Math.abs(alongGravity-laneFreeBestAlong)<1e-9&&compareLatticeKeys(sameKindKey,laneNearestFreeKey)<0)))))))){laneNearestFreeKey=sameKindKey;laneFreeBestCross=absCross;laneFreeBestAlong=alongGravity;laneFreeBestLateralSigned=lateralSigned;}
+})();
+}
+laneBlockedNearest=laneNearestOccupiedKey!==null&&occupiedKeysSet.has(laneNearestOccupiedKey);
 edgeNeighborKeys=neigh[pieceCellKey]||[];
 for(neighborIdx=0;neighborIdx<edgeNeighborKeys.length;neighborIdx++){
 neighborKey=edgeNeighborKeys[neighborIdx];neighborCell=cellMap[neighborKey];if(!neighborCell)continue;
@@ -444,8 +518,17 @@ edgeVision.push({key:neighborKey,triangleOrientationKind:neighborCell.triangleOr
 if(occupiedKeysSet.has(neighborKey))litEdgeNeighborKeys.push(neighborKey);else darkEdgeNeighborKeys.push(neighborKey);
 deltaX=neighborCell.cx-pieceCell.cx;deltaY=neighborCell.cy-pieceCell.cy;alongGravity=deltaX*gravity.gx+deltaY*gravity.gy;
 if(neighborCell.triangleOrientationKind!==pieceCell.triangleOrientationKind&&alongGravity>epsilon&&!occupiedKeysSet.has(neighborKey)){
-crossFromGravity=deltaX*(-gravity.gy)+deltaY*gravity.gx;absCross=Math.abs(crossFromGravity);lateralSeparationAbs=Math.abs(deltaX*rightPerpHat.gx+deltaY*rightPerpHat.gy);
-if(bestOppositeFlipKey===null||absCross<bestFlipCross-epsilon||(Math.abs(absCross-bestFlipCross)<1e-9&&(alongGravity>bestFlipAlong+epsilon||(Math.abs(alongGravity-bestFlipAlong)<1e-9&&(lateralSeparationAbs<bestFlipLateral-epsilon||(Math.abs(lateralSeparationAbs-bestFlipLateral)<1e-9&&compareLatticeKeys(neighborKey,bestOppositeFlipKey)<0)))))){bestOppositeFlipKey=neighborKey;bestFlipCross=absCross;bestFlipAlong=alongGravity;bestFlipLateral=lateralSeparationAbs;}
+crossFromGravity=deltaX*(-gravity.gy)+deltaY*gravity.gx;absCross=Math.abs(crossFromGravity);lateralSigned=deltaX*rightPerpHat.gx+deltaY*rightPerpHat.gy;lateralSeparationAbs=Math.abs(lateralSigned);
+betterFlip=false;
+if(bestOppositeFlipKey===null)betterFlip=true;
+else if(absCross<bestFlipCross-epsilon)betterFlip=true;
+else if(Math.abs(absCross-bestFlipCross)<1e-9){
+if(alongGravity>bestFlipAlong+epsilon)betterFlip=true;
+else if(Math.abs(alongGravity-bestFlipAlong)<1e-9){
+if(lateralSigned>bestFlipLateralSigned+epsilon||(Math.abs(lateralSigned-bestFlipLateralSigned)<1e-9&&compareLatticeKeys(neighborKey,bestOppositeFlipKey)<0))betterFlip=true;
+}
+}
+if(betterFlip){bestOppositeFlipKey=neighborKey;bestFlipCross=absCross;bestFlipAlong=alongGravity;bestFlipLateral=lateralSeparationAbs;bestFlipLateralSigned=lateralSigned;}
 }
 }
 vertexNeighborKeys=vertexNeigh[pieceCellKey]||[];
@@ -454,47 +537,39 @@ neighborKey=vertexNeighborKeys[neighborIdx];neighborCell=cellMap[neighborKey];if
 vertexVision.push({key:neighborKey,triangleOrientationKind:neighborCell.triangleOrientationKind,lit:occupiedKeysSet.has(neighborKey)});
 if(occupiedKeysSet.has(neighborKey))litVertexNeighborKeys.push(neighborKey);else darkVertexNeighborKeys.push(neighborKey);
 }
-for(sameKindScanIdx=0;sameKindScanIdx<cells.length;sameKindScanIdx++){
-sameKindCell=cells[sameKindScanIdx];sameKindKey=latticeKeyFromTriangleRecord(sameKindCell);if(sameKindCell.triangleOrientationKind!==pieceCell.triangleOrientationKind)continue;
-if(sameKindCell.latticeColumnIndex===pieceCell.latticeColumnIndex&&sameKindCell.latticeRowIndex===pieceCell.latticeRowIndex+1&&!cellBoundary[pieceCellKey])continue;
-deltaX=sameKindCell.cx-pieceCell.cx;deltaY=sameKindCell.cy-pieceCell.cy;alongGravity=deltaX*gravity.gx+deltaY*gravity.gy;if(alongGravity<=epsilon)continue;
-crossFromGravity=deltaX*(-gravity.gy)+deltaY*gravity.gx;absCross=Math.abs(crossFromGravity);
-if(laneNearestOccupiedKey===null||absCross<laneNearestCross-epsilon||(Math.abs(absCross-laneNearestCross)<1e-9&&(alongGravity<laneNearestAlong-epsilon||(Math.abs(alongGravity-laneNearestAlong)<1e-9&&compareLatticeKeys(sameKindKey,laneNearestOccupiedKey)<0)))){laneNearestOccupiedKey=sameKindKey;laneNearestCross=absCross;laneNearestAlong=alongGravity;}
-if(occupiedKeysSet.has(sameKindKey))continue;
-if(laneNearestFreeKey===null||absCross<laneFreeBestCross-epsilon||(Math.abs(absCross-laneFreeBestCross)<1e-9&&(alongGravity<laneFreeBestAlong-epsilon||(Math.abs(alongGravity-laneFreeBestAlong)<1e-9&&compareLatticeKeys(sameKindKey,laneNearestFreeKey)<0)))){laneNearestFreeKey=sameKindKey;laneFreeBestCross=absCross;laneFreeBestAlong=alongGravity;}
-}
 return{
 key:pieceCellKey,label:pieceCell.label,triangleOrientationKind:pieceCell.triangleOrientationKind,latticeRowIndex:pieceCell.latticeRowIndex,isBoundary:!!cellBoundary[pieceCellKey],edgeVision:edgeVision,litEdgeNeighborKeys:litEdgeNeighborKeys,darkEdgeNeighborKeys:darkEdgeNeighborKeys,
 vertexVision:vertexVision,litVertexNeighborKeys:litVertexNeighborKeys,darkVertexNeighborKeys:darkVertexNeighborKeys,
-laneAnyKey:laneNearestOccupiedKey,laneFreeKey:laneNearestFreeKey,laneBlockedNearest:laneNearestOccupiedKey!==null&&occupiedKeysSet.has(laneNearestOccupiedKey),
+laneAnyKey:laneNearestOccupiedKey,laneFreeKey:laneNearestFreeKey,laneBlockedNearest:laneBlockedNearest,
 bestFlipKey:bestOppositeFlipKey
 };
 }
 function computeDownPointyBlockedCandidate(sightInfo,occupiedKeysSet,gravity,rightPerpHat,epsilon){
-var pieceCell,pieceCellKey,bestFlipKey,occupancyAfterFlip,cellAfterFlip,compositeLaneKey,minTierCross,bestAlongInTier,cellScanIdx,otherCell,otherKey,deltaX,deltaY,alongGravity,crossFromGravity,absCross;
+var pieceCell,pieceCellKey,bestFlipKey,occupancyAfterFlip,cellAfterFlip,compositeLaneKey,minTierCross,bestAlongInTier,bestCompositeLateral,cellScanIdx,otherCell,otherKey,deltaX,deltaY,alongGravity,crossFromGravity,absCross,lateralDot;
 if(!sightInfo||!sightInfo.laneBlockedNearest||sightInfo.triangleOrientationKind!==0)return{composite:null,flip:null};
 pieceCell=cellMap[sightInfo.key];pieceCellKey=sightInfo.key;bestFlipKey=sightInfo.bestFlipKey;
 if(bestFlipKey===null)return{composite:null,flip:null};
 occupancyAfterFlip=new Set(occupiedKeysSet);occupancyAfterFlip.delete(pieceCellKey);occupancyAfterFlip.add(bestFlipKey);
-cellAfterFlip=cellMap[bestFlipKey];compositeLaneKey=null;minTierCross=1e30;bestAlongInTier=1e30;
+cellAfterFlip=cellMap[bestFlipKey];compositeLaneKey=null;minTierCross=1e30;bestAlongInTier=1e30;bestCompositeLateral=-1e30;
 if(cellAfterFlip){
 for(cellScanIdx=0;cellScanIdx<cells.length;cellScanIdx++){
-otherCell=cells[cellScanIdx];if(otherCell.triangleOrientationKind!==cellAfterFlip.triangleOrientationKind)continue;if(otherCell.latticeColumnIndex===cellAfterFlip.latticeColumnIndex&&otherCell.latticeRowIndex===cellAfterFlip.latticeRowIndex+1&&!cellBoundary[bestFlipKey])continue;
+otherCell=cells[cellScanIdx];if(otherCell.triangleOrientationKind!==cellAfterFlip.triangleOrientationKind)continue;
 deltaX=otherCell.cx-cellAfterFlip.cx;deltaY=otherCell.cy-cellAfterFlip.cy;alongGravity=deltaX*gravity.gx+deltaY*gravity.gy;if(alongGravity<=epsilon)continue;
 crossFromGravity=deltaX*(-gravity.gy)+deltaY*gravity.gx;absCross=Math.abs(crossFromGravity);if(absCross<minTierCross-epsilon)minTierCross=absCross;
 }
 if(minTierCross<1e29){
 for(cellScanIdx=0;cellScanIdx<cells.length;cellScanIdx++){
-otherCell=cells[cellScanIdx];otherKey=latticeKeyFromTriangleRecord(otherCell);if(otherCell.triangleOrientationKind!==cellAfterFlip.triangleOrientationKind)continue;if(otherCell.latticeColumnIndex===cellAfterFlip.latticeColumnIndex&&otherCell.latticeRowIndex===cellAfterFlip.latticeRowIndex+1&&!cellBoundary[bestFlipKey])continue;if(occupancyAfterFlip.has(otherKey))continue;
+otherCell=cells[cellScanIdx];otherKey=latticeKeyFromTriangleRecord(otherCell);if(otherCell.triangleOrientationKind!==cellAfterFlip.triangleOrientationKind)continue;if(occupancyAfterFlip.has(otherKey))continue;
 deltaX=otherCell.cx-cellAfterFlip.cx;deltaY=otherCell.cy-cellAfterFlip.cy;alongGravity=deltaX*gravity.gx+deltaY*gravity.gy;if(alongGravity<=epsilon)continue;
 crossFromGravity=deltaX*(-gravity.gy)+deltaY*gravity.gx;absCross=Math.abs(crossFromGravity);if(absCross>minTierCross+epsilon)continue;
-if(compositeLaneKey===null||alongGravity<bestAlongInTier-epsilon||(Math.abs(alongGravity-bestAlongInTier)<1e-9&&compareLatticeKeys(otherKey,compositeLaneKey)<0)){compositeLaneKey=otherKey;bestAlongInTier=alongGravity;}
+lateralDot=deltaX*rightPerpHat.gx+deltaY*rightPerpHat.gy;
+if(compositeLaneKey===null||lateralDot>bestCompositeLateral+epsilon||(Math.abs(lateralDot-bestCompositeLateral)<1e-9&&(alongGravity<bestAlongInTier-epsilon||(Math.abs(alongGravity-bestAlongInTier)<1e-9&&compareLatticeKeys(otherKey,compositeLaneKey)<0)))){compositeLaneKey=otherKey;bestAlongInTier=alongGravity;bestCompositeLateral=lateralDot;}
 }}
 }
 return{composite:compositeLaneKey,flip:bestFlipKey};
 }
 function computeBottomFlipTargetKey(occupiedCellKey,occupiedKeysSet,maxBoundaryCentroidY,gravity,rightPerpHat,epsilon,cellSide){
-var pieceCell=cellMap[occupiedCellKey],edgeNeighborKeys,neighborKey,neighborCell,edgeIdx,deltaX,deltaY,alongGravity,bottomFlipTarget=null,bestNeighborCy=-1e30,bestDeltaX=-1e30,bestAlongGravity=-1e30,nearFloorByCentroidY,sightInfo,isolatedNoLitNeighbors;
+var pieceCell=cellMap[occupiedCellKey],edgeNeighborKeys,neighborKey,neighborCell,edgeIdx,deltaX,deltaY,alongGravity,lateralDot,bottomFlipTarget=null,bestNeighborCy=-1e30,bestLateralDot=-1e30,bestAlongGravity=-1e30,nearFloorByCentroidY,sightInfo,isolatedNoLitNeighbors;
 if(!pieceCell||pieceCell.triangleOrientationKind!==0)return null;
 nearFloorByCentroidY=pieceCell.cy>=maxBoundaryCentroidY-cellSide*0.75;
 sightInfo=buildTriangleSight(occupiedCellKey,occupiedKeysSet,gravity,rightPerpHat,epsilon);
@@ -505,7 +580,8 @@ edgeNeighborKeys=neigh[occupiedCellKey]||[];
 for(edgeIdx=0;edgeIdx<edgeNeighborKeys.length;edgeIdx++){
 neighborKey=edgeNeighborKeys[edgeIdx];if(occupiedKeysSet.has(neighborKey))continue;neighborCell=cellMap[neighborKey];if(!neighborCell||neighborCell.triangleOrientationKind===pieceCell.triangleOrientationKind)continue;
 deltaX=neighborCell.cx-pieceCell.cx;deltaY=neighborCell.cy-pieceCell.cy;alongGravity=deltaX*gravity.gx+deltaY*gravity.gy;if(alongGravity<-(cellSide*0.45))continue;
-if(bottomFlipTarget===null||neighborCell.cy>bestNeighborCy+epsilon||(Math.abs(neighborCell.cy-bestNeighborCy)<1e-9&&(deltaX>bestDeltaX+epsilon||(Math.abs(deltaX-bestDeltaX)<1e-9&&(alongGravity>bestAlongGravity+epsilon||(Math.abs(alongGravity-bestAlongGravity)<1e-9&&compareLatticeKeys(neighborKey,bottomFlipTarget)<0)))))){bottomFlipTarget=neighborKey;bestNeighborCy=neighborCell.cy;bestDeltaX=deltaX;bestAlongGravity=alongGravity;}
+lateralDot=deltaX*rightPerpHat.gx+deltaY*rightPerpHat.gy;
+if(bottomFlipTarget===null||neighborCell.cy>bestNeighborCy+epsilon||(Math.abs(neighborCell.cy-bestNeighborCy)<1e-9&&(lateralDot>bestLateralDot+epsilon||(Math.abs(lateralDot-bestLateralDot)<1e-9&&(alongGravity>bestAlongGravity+epsilon||(Math.abs(alongGravity-bestAlongGravity)<1e-9&&compareLatticeKeys(neighborKey,bottomFlipTarget)<0)))))){bottomFlipTarget=neighborKey;bestNeighborCy=neighborCell.cy;bestLateralDot=lateralDot;bestAlongGravity=alongGravity;}
 }
 return bottomFlipTarget;
 }
@@ -542,21 +618,23 @@ wallCompositeMoveTarget=wallChoicesAfterPivot.slideLocal!==null?wallChoicesAfter
 if(wallCompositeMoveTarget===null||wallCompositeMoveTarget===pieceKey||workingOccupied.has(wallCompositeMoveTarget)||claimedDestinationKeys.has(wallCompositeMoveTarget))wallCompositeMoveTarget=null;
 }
 laneFreeTargetKey=sightInfo?sightInfo.laneFreeKey:null;
-edgeNeighborKeys=neigh[pieceKey]||[];boundaryFlipCandidate=null;bestCross=1e30;
+edgeNeighborKeys=neigh[pieceKey]||[];boundaryFlipCandidate=null;
+var flipBlockedLane=!!(sightInfo&&sightInfo.laneBlockedNearest),boundaryBestCross=-1e30;
 for(edgeIdx=0;edgeIdx<edgeNeighborKeys.length;edgeIdx++){
 neighborKey=edgeNeighborKeys[edgeIdx];if(workingOccupied.has(neighborKey))continue;neighborCell=cellMap[neighborKey];if(!neighborCell||neighborCell.triangleOrientationKind===pieceCell.triangleOrientationKind)continue;if(!cellBoundary[neighborKey])continue;
 deltaX=neighborCell.cx-pieceCell.cx;deltaY=neighborCell.cy-pieceCell.cy;alongGravity=deltaX*gravityVec.gx+deltaY*gravityVec.gy;if(alongGravity<=epsilon)continue;
 lateralDot=deltaX*rightPerpendicularUnit.gx+deltaY*rightPerpendicularUnit.gy;
-if(boundaryFlipCandidate===null||lateralDot<bestCross-epsilon||(Math.abs(lateralDot-bestCross)<1e-9&&compareLatticeKeys(neighborKey,boundaryFlipCandidate)<0)){boundaryFlipCandidate=neighborKey;bestCross=lateralDot;}
+if(boundaryFlipCandidate===null||lateralDot>boundaryBestCross+epsilon||(Math.abs(lateralDot-boundaryBestCross)<1e-9&&compareLatticeKeys(neighborKey,boundaryFlipCandidate)<0)){boundaryFlipCandidate=neighborKey;boundaryBestCross=lateralDot;}
 }
 bottomFlipCandidate=null;nearFloorByCentroidY=pieceCell.cy>=maxBoundaryCentroidY-cellSideLength*0.75;
 var isolatedNoAdjacentLit=sightInfo&&sightInfo.litEdgeNeighborKeys.length===0&&sightInfo.litVertexNeighborKeys.length===0;
 if(pieceCell.triangleOrientationKind===0&&nearFloorByCentroidY&&(cellBoundary[pieceKey]||isolatedNoAdjacentLit)){
-var bestBottomCy=-1e30,bestBottomDx=-1e30,bestBottomAlong=-1e30;
+var bestBottomCy=-1e30,bestBottomLat=-1e30,bestBottomAlong=-1e30,bottomLat;
 for(edgeIdx=0;edgeIdx<edgeNeighborKeys.length;edgeIdx++){
 neighborKey=edgeNeighborKeys[edgeIdx];if(workingOccupied.has(neighborKey))continue;neighborCell=cellMap[neighborKey];if(!neighborCell||neighborCell.triangleOrientationKind===pieceCell.triangleOrientationKind)continue;
 deltaX=neighborCell.cx-pieceCell.cx;deltaY=neighborCell.cy-pieceCell.cy;alongGravity=deltaX*gravityVec.gx+deltaY*gravityVec.gy;if(alongGravity<-(cellSideLength*0.45))continue;
-if(bottomFlipCandidate===null||neighborCell.cy>bestBottomCy+epsilon||(Math.abs(neighborCell.cy-bestBottomCy)<1e-9&&(deltaX>bestBottomDx+epsilon||(Math.abs(deltaX-bestBottomDx)<1e-9&&(alongGravity>bestBottomAlong+epsilon||(Math.abs(alongGravity-bestBottomAlong)<1e-9&&compareLatticeKeys(neighborKey,bottomFlipCandidate)<0)))))){bottomFlipCandidate=neighborKey;bestBottomCy=neighborCell.cy;bestBottomDx=deltaX;bestBottomAlong=alongGravity;}
+bottomLat=deltaX*rightPerpendicularUnit.gx+deltaY*rightPerpendicularUnit.gy;
+if(bottomFlipCandidate===null||neighborCell.cy>bestBottomCy+epsilon||(Math.abs(neighborCell.cy-bestBottomCy)<1e-9&&(bottomLat>bestBottomLat+epsilon||(Math.abs(bottomLat-bestBottomLat)<1e-9&&(alongGravity>bestBottomAlong+epsilon||(Math.abs(alongGravity-bestBottomAlong)<1e-9&&compareLatticeKeys(neighborKey,bottomFlipCandidate)<0)))))){bottomFlipCandidate=neighborKey;bestBottomCy=neighborCell.cy;bestBottomLat=bottomLat;bestBottomAlong=alongGravity;}
 }
 }
 var collapsedLaneTerminalBottomKey=null,laneFreeHumanLabel=null;
@@ -568,12 +646,13 @@ collapsedLaneTerminalBottomKey=computeBottomFlipTargetKey(sightInfo.laneFreeKey,
 if(collapsedLaneTerminalBottomKey!==null){bottomFlipCandidate=collapsedLaneTerminalBottomKey;}
 }
 var nearBottomForRuleFlags=nearFloorByCentroidY||(collapsedLaneTerminalBottomKey!==null);
-interiorFlipCandidate=null;bestCross=1e30;
+interiorFlipCandidate=null;
+var interiorBestCross=-1e30;
 for(edgeIdx=0;edgeIdx<edgeNeighborKeys.length;edgeIdx++){
 neighborKey=edgeNeighborKeys[edgeIdx];if(workingOccupied.has(neighborKey))continue;neighborCell=cellMap[neighborKey];if(!neighborCell||neighborCell.triangleOrientationKind===pieceCell.triangleOrientationKind)continue;
 deltaX=neighborCell.cx-pieceCell.cx;deltaY=neighborCell.cy-pieceCell.cy;alongGravity=deltaX*gravityVec.gx+deltaY*gravityVec.gy;if(alongGravity<=epsilon)continue;
 lateralDot=deltaX*rightPerpendicularUnit.gx+deltaY*rightPerpendicularUnit.gy;
-if(interiorFlipCandidate===null||lateralDot<bestCross-epsilon||(Math.abs(lateralDot-bestCross)<1e-9&&compareLatticeKeys(neighborKey,interiorFlipCandidate)<0)){interiorFlipCandidate=neighborKey;bestCross=lateralDot;}
+if(interiorFlipCandidate===null||lateralDot>interiorBestCross+epsilon||(Math.abs(lateralDot-interiorBestCross)<1e-9&&compareLatticeKeys(neighborKey,interiorFlipCandidate)<0)){interiorFlipCandidate=neighborKey;interiorBestCross=lateralDot;}
 }
 downPointyBlockedOptions=computeDownPointyBlockedCandidate(sightInfo,workingOccupied,gravityVec,rightPerpendicularUnit,epsilon);
 ruleBasedMove=chooseRuleBasedMove(
@@ -615,9 +694,8 @@ if(phase==="layFlat")return"same-orientation: skipped — lay-flat on container 
 if(phase==="wallSlide")return"same-orientation: skipped — keep full-edge wall contact via local rotation before lane skip (flip to #"+chosenHumanLabel+")";
 if(phase==="boundaryTip")return"same-orientation: skipped — boundary tip rotation runs before long lane skip (flip to #"+chosenHumanLabel+")";
 if(phase==="pivot")return"same-orientation: skipped — wall pivot runs first (flip to #"+chosenHumanLabel+")";
-if(neighborCell.latticeColumnIndex===pieceCell.latticeColumnIndex&&neighborCell.latticeRowIndex===pieceCell.latticeRowIndex+1&&!cellBoundary[pieceCellKey])return"lane: same-column skip candidate excluded (piece not on container edge)";
 if(alongGravity<=epsilon)return"lane: not downhill (along≤0)";
-return"lane: not min |cross| tier / min along — #"+chosenHumanLabel+" wins";
+return"lane: not min |cross| tier / min |lateral| on tie / +rightPerp / min along — #"+chosenHumanLabel+" wins";
 }
 if(alongGravity<=epsilon)return"tip (flip kind): not downhill";
 if(phase==="wallSlideComposite")return"composite wall slide: intermediate pivot omitted; #"+chosenHumanLabel+" is the landed slide state";
@@ -643,7 +721,7 @@ return"flip: boundary-tip tie — lost to #"+chosenHumanLabel+" (stronger bounda
 }
 if(phase==="lane")return"flip neighbor: rotation not tried — lane phase runs first (same-orientation move to #"+chosenHumanLabel+")";
 if(!cellBoundary[neighborCellKey])return"tip: neighbor not on mesh boundary (wall phase ignores it; interior may still take another flip)";
-return"tip: not leftmost lateral (min dot with rightPerpHat; lateralDot="+lateralDot.toFixed(2)+") — #"+chosenHumanLabel+" wins";
+return"tip: not rightmost lateral (max +rightPerp dot; lateralDot="+lateralDot.toFixed(2)+") — #"+chosenHumanLabel+" wins";
 }
 function telTickDetail(occupiedKeysAtTickStart,moveList){
 var gravityVec=gravityUnitVectorFromRotationStepCount(rotStep),rightPerpHat={gx:gravityVec.gy,gy:-gravityVec.gx},epsilon=1e-6,moveIdx,singleMove,fromKey,toKey,phaseId,fromCell,toCell,transitionKind,edgeNeighborKeys,neighborIdx,neighborKey,neighborHumanLabel;
@@ -849,15 +927,15 @@ extraDetail=extraDetail||{};
 var phrases=[];
 if(extraDetail.usedCollapsedLaneTerminal)phrases.push("Single tick combines: would lane to #"+(extraDetail.laneFreeLabel!=null?extraDetail.laneFreeLabel:"?")+" then apply the same terminal bottom-flip target.");
 if(ruleFlags.wallModeActive)phrases.push("Wall-macro mode (polygon cup heuristics).");
-if(ruleFlags.laneBlockedNearest)phrases.push("Down-pointy blocked-lane branch: nearest lane slot in tier is occupied.");
+if(ruleFlags.laneBlockedNearest)phrases.push("Nearest tier lane slot occupied: same-kind lane step blocked.");
 if(extraDetail.nearFloorGeometry)phrases.push("Centroid within near-floor band (max boundary row Y minus0.75×cell side).");
 if(ruleFlags.nearBottomBoundary&&!extraDetail.nearFloorGeometry)phrases.push("Near-floor flag forced for rules (terminal lane-collapse shortcut).");
 if(ruleFlags.isolatedNoAdjacentLit)phrases.push("Isolated: no lit edge or vertex neighbors.");
 if(ruleFlags.isBoundary)phrases.push("On mesh boundary.");
-if(phase==="lane")phrases.push("Cascade: lane — empty downhill same-kind tier cell (may skip one mesh row in-column when interior).");
+if(phase==="lane")phrases.push("Cascade: lane — empty downhill same-kind tier (min |cross|, ties min |lateral| then +rightPerp).");
 else if(phase==="bottomFlipBoundary")phrases.push("Physics rule bottomFlipBoundary: terminal opposite-kind flip — piece on mesh boundary near floor.");
 else if(phase==="bottomFlipIsolatedInterior")phrases.push("Physics rule bottomFlipIsolatedInterior: terminal opposite-kind flip — isolated interior near floor.");
-else if(phase==="wall"||phase==="interior")phrases.push("Cascade: rotation to opposite-kind downhill neighbor (wall vs interior tie-break).");
+else if(phase==="wall"||phase==="interior")phrases.push("Cascade: rotation to opposite-kind downhill neighbor; ties favor +rightPerp (rotate right).");
 else if(phase==="downPointyBlockedComposite"||phase==="downPointyBlockedFlip")phrases.push("Cascade: down-pointy blocked-lane macro or flip.");
 else if(phase==="wallSlideComposite"||phase==="slideLocal"||phase==="pivotRotate")phrases.push("Cascade: wall-macro slide or pivot.");
 if(!phrases.length)phrases.push("Matched physics rule id "+phase+" — precedence order is triangle-physics.rules.v1.json.");
@@ -1231,8 +1309,43 @@ function telMovePair(fromLatticeKey,toLatticeKey){var fromCell=cellMap[fromLatti
 function fallTelemetry(occupiedKeysBefore,occupiedKeysAfter,telemetryHead,moveList){if(setsEqual(occupiedKeysBefore,occupiedKeysAfter)){tel(telemetryHead+"  (no movement)");return}if(moveList&&moveList.length){var movePairStrings=moveList.map(function(moveRecord){return telMovePair(moveRecord.fromLatticeKey,moveRecord.toLatticeKey);});tel(telemetryHead+"  n="+moveList.length+"  "+movePairStrings.join(" "));telTickDetail(occupiedKeysBefore,moveList);return}var keysOnlyInBefore=[],keysOnlyInAfter=[],keyBefore,keyAfter;for(keyBefore of occupiedKeysBefore)if(!occupiedKeysAfter.has(keyBefore))keysOnlyInBefore.push(keyBefore);for(keyAfter of occupiedKeysAfter)if(!occupiedKeysBefore.has(keyAfter))keysOnlyInAfter.push(keyAfter);var pairIndex,pairCount=Math.min(keysOnlyInBefore.length,keysOnlyInAfter.length),inferredPairStrings=[];for(pairIndex=0;pairIndex<pairCount;pairIndex++)inferredPairStrings.push(telMovePair(keysOnlyInBefore[pairIndex],keysOnlyInAfter[pairIndex]));tel(telemetryHead+"  n="+keysOnlyInBefore.length+"  "+inferredPairStrings.slice(0,6).join(" ")+(inferredPairStrings.length>6?" ...":""));}
 function telExpectFall(){var occupiedBeforeExpect,fallOnceResult,occupiedAfterExpect;if(litTriangleKeySet.size===0){tel("expect Fall 1 tick: (no greens — nothing to move)");return}try{occupiedBeforeExpect=new Set(litTriangleKeySet);fallOnceResult=fallTickSequential(occupiedBeforeExpect)}catch(fallExpectError){tel("expect Fall 1 tick: "+fallExpectError.message);return}occupiedAfterExpect=fallOnceResult.next;if(setsEqual(occupiedBeforeExpect,occupiedAfterExpect)){tel("expect Fall 1 tick: (no movement)");return}if(fallOnceResult.moves&&fallOnceResult.moves.length){var expectPairStrings=fallOnceResult.moves.map(function(moveRecord){return telMovePair(moveRecord.fromLatticeKey,moveRecord.toLatticeKey);});tel("expect Fall 1 tick: n="+fallOnceResult.moves.length+"  "+expectPairStrings.join(" "));telTickDetail(occupiedBeforeExpect,fallOnceResult.moves);return}fallTelemetry(occupiedBeforeExpect,occupiedAfterExpect,"expect Fall 1 tick",null);}
 function updRot(){var rotationLabel=document.getElementById("containerRotationSummaryLabel");if(rotationLabel)rotationLabel.textContent="Container rotation: "+(rotStep*60)+" deg CW (step "+rotStep+" of 6)";}
-function updContainerShapeLab(){var shapeLabelElement=document.getElementById("containerShapeSummaryLabel"),containerPolygonVertices=layoutSpec.containerPolygon,descriptionLine,maskedCellCount;if(!shapeLabelElement)return;if(layoutSpec.cellMaskKeys&&Array.isArray(layoutSpec.cellMaskKeys)){maskedCellCount=layoutSpec.cellMaskKeys.length;descriptionLine="Cell mask (editor) · "+maskedCellCount+" triangle"+(maskedCellCount===1?"":"s")}else if(containerPolygonVertices&&containerPolygonVertices.length===3)descriptionLine="V — triangle profile (apex at bottom)";else if(layoutSpec.vShape&&typeof layoutSpec.vShape.centerX==="number")descriptionLine="V (symmetric taper, JSON)";else if(containerPolygonVertices&&containerPolygonVertices.length>=3)descriptionLine="T + custom polygon (loaded)";else descriptionLine="T — top bar + rectangular stem (flat bottom)";shapeLabelElement.textContent="Container: "+descriptionLine+"  ·  Build "+PLAYGROUND_BUILD;}
-function applyContainerPreset(which){logClick("Container "+which);truncateToHere();var next=which==="V"?cloneLayoutV():cloneLayoutT();rebuildWorldFromLayout(next);litTriangleKeySet=new Set();litColorByKey={};nextLitColorIdx=0;clearPathPreview();clearFallDecisionState();snapshots=[{keys:[],rot:rotStep,colors:{},nextColorIdx:0,label:"container "+which}];snapIdx=0;tel("Container: "+(which==="V"?"V triangle to apex":"T two rectangles, flat stem bottom"));updContainerShapeLab();redrawBoard();telExpectFall();}
+function updContainerShapeLab(){var shapeLabelElement=document.getElementById("containerShapeSummaryLabel"),containerPolygonVertices=layoutSpec.containerPolygon,descriptionLine,maskedCellCount;if(!shapeLabelElement)return;if(cells.length===0){shapeLabelElement.textContent="Container: none — use **T** / **V** (or **Load** JSON)  ·  Build "+PLAYGROUND_BUILD;return}if(layoutSpec.cellMaskKeys&&Array.isArray(layoutSpec.cellMaskKeys)){maskedCellCount=layoutSpec.cellMaskKeys.length;descriptionLine="Cell mask (editor) · "+maskedCellCount+" triangle"+(maskedCellCount===1?"":"s")}else if(containerPolygonVertices&&containerPolygonVertices.length===3)descriptionLine="V — triangle profile (apex at bottom)";else if(layoutSpec.vShape&&typeof layoutSpec.vShape.centerX==="number")descriptionLine="V (symmetric taper, JSON)";else if(containerPolygonVertices&&containerPolygonVertices.length>=3)descriptionLine="T + custom polygon (loaded)";else descriptionLine="T — top bar + rectangular stem (flat bottom)";shapeLabelElement.textContent="Container: "+descriptionLine+"  ·  Build "+PLAYGROUND_BUILD;}
+function applyContainerPreset(which){
+logClick("Container "+which);
+truncateToHere();
+var url=which==="V"?CONTAINER_PRESET_FILE_V:CONTAINER_PRESET_FILE_T;
+var fetchUrl=(typeof URL!=="undefined"&&typeof location!=="undefined")?new URL(url,location.href).href:url;
+var memPreset=which==="V"?containerPresetMaskObjectV:containerPresetMaskObjectT;
+function finishApply(maskObj){
+var next;
+if(maskObj){
+next=layoutFromCellMaskFile(maskObj);
+if(!next){
+tel("Container rejected: "+which+" — JSON is not a valid containerCellMask or keys are out of range (max grid "+EDITOR_MESH_MAX_GRID_COLS+"×"+EDITOR_MESH_MAX_GRID_ROWS+")");
+return false;
+}
+if(which==="V")containerPresetMaskObjectV=maskObj;else containerPresetMaskObjectT=maskObj;
+}else{
+next=layoutFromCachedPreset(which==="V");
+if(!next)return false;
+}
+rebuildWorldFromLayout(next);
+litTriangleKeySet=new Set();
+litColorByKey={};
+nextLitColorIdx=0;
+clearPathPreview();
+clearFallDecisionState();
+snapshots=[{keys:[],rot:rotStep,colors:{},nextColorIdx:0,label:"container "+which}];
+snapIdx=0;
+tel("Container: "+which+" ("+url+")");
+updContainerShapeLab();
+redrawBoard();
+telExpectFall();
+return true;
+}
+if(typeof fetch!=="function"){var br0=rawPresetFromScriptBundle(which);if(br0&&finishApply(br0))return;if(memPreset&&finishApply(memPreset))return;tel("Container: fetch not available — use **Load**");return;}
+fetch(fetchUrl,{cache:"no-cache"}).then(function(res){if(!res.ok)throw new Error("HTTP "+res.status);return res.json();}).then(function(j){if(finishApply(j))return;tel("Container: fetched "+url+" did not validate as containerCellMask");}).catch(function(err){tel("Container fetch failed ("+fetchUrl+"): "+(err&&err.message?err.message:String(err)));var br=rawPresetFromScriptBundle(which);if(br&&finishApply(br)){tel("Container: "+which+" loaded from presets/playground-default-presets.js (file:// cannot fetch sibling .json)");return;}if(memPreset&&finishApply(memPreset))return;if(finishApply(null))return;tel("Container: could not load "+url+" — add presets/playground-default-presets.js next to index.html, or use **Load**");});
+}
 function setOnByIds(ids,label){
 var idSet=new Set(ids||[]),cellIndex,latticeKey;
 truncateToHere();
@@ -1316,8 +1429,12 @@ if(bridgeAction.op==="loadContainerFile"){
 var containerFilePath=String(bridgeAction.path||"");
 bridgePost("/load-container-file",{path:containerFilePath}).then(function(responsePayload){
 if(!responsePayload||!responsePayload.object){tel("bridge action failed: could not load container file");return;}
+try{
 loadStateObject(responsePayload.object,{silent:false,clearTelemetry:true,label:"bridge load"});
 tel("bridge action: loaded "+(containerFilePath||"container file"));
+}catch(loadContainerError){
+tel("bridge action failed: "+(loadContainerError&&loadContainerError.message?loadContainerError.message:loadContainerError));
+}
 }).catch(function(errorPayload){
 tel("bridge action failed: loadContainerFile "+(errorPayload&&errorPayload.message?errorPayload.message:errorPayload));
 });
@@ -1577,6 +1694,8 @@ var humanLabelIdSet,rebuiltLayoutSpec,keyIndex,litKeysFromPayload,latticeKeyFrom
 if(!savedStateObject||typeof savedStateObject!=="object")throw new Error("load object must be a JSON object");
 loadedFromEditorMask=!!(savedStateObject.kind==="containerCellMask"&&savedStateObject.mesh);
 rebuiltLayoutSpec=loadedFromEditorMask?layoutFromCellMaskFile(savedStateObject):layoutFromJSON(savedStateObject.layout,layoutSpec);
+if(loadedFromEditorMask&&!rebuiltLayoutSpec)throw new Error("container exceeds editor mesh (max "+EDITOR_MESH_MAX_GRID_COLS+"×"+EDITOR_MESH_MAX_GRID_ROWS+" lattice, side "+EDITOR_MESH_SIDE+", origin "+EDITOR_MESH_ORIGIN_X+","+EDITOR_MESH_ORIGIN_Y+") or keys are invalid");
+if(!loadedFromEditorMask&&!rebuiltLayoutSpec)throw new Error("layout exceeds editor mesh limits or cellMask keys are out of range");
 if(rebuiltLayoutSpec)rebuildWorldFromLayout(rebuiltLayoutSpec);
 if(typeof savedStateObject.rotationSteps==="number")rotStep=((Math.round(savedStateObject.rotationSteps)%6)+6)%6;
 litKeysFromPayload=new Set();
@@ -1636,7 +1755,7 @@ if(HEADLESS_SIM&&typeof globalThis!=="undefined"){
 globalThis.__TG_DEBUG__={
 previewIdsForCell:function(containerType,cellId){
 var targetTriangle,pathDetailResult,resolvedLatticeKey;
-if(containerType==="V")rebuildWorldFromLayout(cloneLayoutV());else rebuildWorldFromLayout(cloneLayoutT());
+if(containerType==="V")rebuildWorldFromLayout(layoutFromCachedPreset(true)||emptyEditorMeshLayout());else rebuildWorldFromLayout(layoutFromCachedPreset(false)||emptyEditorMeshLayout());
 rotStep=0;litTriangleKeySet=new Set();litColorByKey={};nextLitColorIdx=0;
 resolvedLatticeKey=keyFromHumanLabel(cellId);targetTriangle=resolvedLatticeKey?cellMap[resolvedLatticeKey]:null;
 if(!targetTriangle)return[];
@@ -1646,7 +1765,7 @@ return pathDetailResult.ids;
 },
 previewTraceForCell:function(containerType,cellId){
 var targetTriangle,simulatedOccupancy,occupancyBeforeTick,fallResult,occupancyAfterTick,simulationGuard=0,moveTrace=[],resolvedLatticeKey;
-if(containerType==="V")rebuildWorldFromLayout(cloneLayoutV());else rebuildWorldFromLayout(cloneLayoutT());
+if(containerType==="V")rebuildWorldFromLayout(layoutFromCachedPreset(true)||emptyEditorMeshLayout());else rebuildWorldFromLayout(layoutFromCachedPreset(false)||emptyEditorMeshLayout());
 rotStep=0;litTriangleKeySet=new Set();litColorByKey={};nextLitColorIdx=0;
 resolvedLatticeKey=keyFromHumanLabel(cellId);targetTriangle=resolvedLatticeKey?cellMap[resolvedLatticeKey]:null;
 if(!targetTriangle)return moveTrace;
@@ -1661,7 +1780,7 @@ return moveTrace;
 },
 fallTraceWithSightForCell:function(containerType,cellId){
 var targetTriangle,simulatedOccupancy,occupancyBeforeTick,fallResult,occupancyAfterTick,simulationGuard=0,traceRows=[],sightByKey={},triangleRecord,moveSummaries,tickIsStable,bottomBoundaryCentroidY,cellIndex,physicsFlagsByKey,resolvedLatticeKey;
-if(containerType==="V")rebuildWorldFromLayout(cloneLayoutV());else rebuildWorldFromLayout(cloneLayoutT());
+if(containerType==="V")rebuildWorldFromLayout(layoutFromCachedPreset(true)||emptyEditorMeshLayout());else rebuildWorldFromLayout(layoutFromCachedPreset(false)||emptyEditorMeshLayout());
 rotStep=0;litTriangleKeySet=new Set();litColorByKey={};nextLitColorIdx=0;
 resolvedLatticeKey=keyFromHumanLabel(cellId);targetTriangle=resolvedLatticeKey?cellMap[resolvedLatticeKey]:null;
 if(!targetTriangle)return traceRows;
@@ -1821,6 +1940,7 @@ installButtonIcons();
 installUiTelemetryHooks();
 applyPlaygroundBuildLabel();
 redrawBoard();updContainerShapeLab();setBridgeUi(false,"Offline — start with: node Sandbox/media-bridge.cjs");setSupervisorUi(false,"Offline — start with: node Sandbox/bridge-supervisor.cjs",false);checkBridgeHealth(true);checkSupervisorHealth(true);setInterval(function(){checkBridgeHealth(true);},4000);setInterval(function(){checkSupervisorHealth(true);},5000);if(!dispatchPollDisabledFromUrl())setInterval(function(){pollBridgeDispatchedCommands();},1200);try{if(localStorage.getItem("tg_auto_refresh")==="1")setAutoRefreshEnabled(true);}catch(_){}tel("Ready — Build "+PLAYGROUND_BUILD+" (also on Container line above). Ctrl+F5 if stale.");telExpectFall();
+(function(){if(typeof fetch!=="function")return;if(HEADLESS_SIM)return;var uT=(typeof URL!=="undefined"&&typeof location!=="undefined")?new URL(CONTAINER_PRESET_FILE_T,location.href).href:CONTAINER_PRESET_FILE_T,uV=(typeof URL!=="undefined"&&typeof location!=="undefined")?new URL(CONTAINER_PRESET_FILE_V,location.href).href:CONTAINER_PRESET_FILE_V;function prefetchPreset(absUrl,whichLetter){fetch(absUrl,{cache:"no-cache"}).then(function(r){if(!r.ok)throw new Error("HTTP "+r.status);return r.json();}).then(function(j){if(!layoutFromCellMaskFile(j))return;if(whichLetter==="V")containerPresetMaskObjectV=j;else containerPresetMaskObjectT=j;}).catch(function(){});}prefetchPreset(uT,"T");prefetchPreset(uV,"V");})();
 })();
 </script>
 </body>

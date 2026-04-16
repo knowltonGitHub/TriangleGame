@@ -21,6 +21,8 @@ const context = {
   navigator: { clipboard: null },
   location: { search: "" },
   __TG_HEADLESS_SIM__: true,
+  __dirname: path.dirname(htmlPath),
+  require,
 };
 context.globalThis = context;
 

@@ -1,4 +1,4 @@
-﻿# Triangle Game — main design doc (living)
+# Triangle Game — main design doc (living)
 
 **Maintain:** Update this file whenever design answers land in chat (win/lose, moves, phases, goals).  
 Do not wait for a separate "please update doc" prompt if the user is iterating on rules.
@@ -50,6 +50,39 @@ Implementation detail for code: express this as an explicit **slide primitive** 
 
 ---
 
+### 3.2 Look-around zone and single-piece fall cadence (LOCKED - intent)
+
+**Status:** Product rules below are design intent. Sandbox `index.html` may not enforce all of this in code yet; this section states the target contract.
+
+#### Look-around ("ZONE of awareness")
+
+- Each triangle on the lattice has a **look-around zone**: a structured field of awareness used when reasoning about **how it could move** or **what it sees**.
+- That zone is **ego-centric**: it **moves with the triangle** (re-centered on the active cell each tick). Sector layout stays aligned to **gravity / downhill** and the two oblique down directions (three 120-degree sectors; see layered diagrams under `Design/assets/`).
+- **Every triangle**, **lit or unlit**, is treated as having this zone for design purposes, even if a given build only *evaluates* movement for lit pieces.
+- **Decisions** (rule cascade, candidates, tie-breaks) should ultimately be expressible in terms of what this zone reports (near field, farther rings, sector summaries, isolation vs crowding), not ad hoc global scans unrelated to the piece.
+
+#### Container orientation during a fall ("right side up")
+
+- The container has a **canonical draw orientation**: **right side up**, as first authored in the design/layout.
+- **Falling / settling** for a piece assumes this orientation: "down" is defined relative to that fixed cup frame for the drop described here.
+
+#### One piece falling; no rotation until settled
+
+- **Exactly one** triangle is **in the act of falling / settling** inside the container at a time.
+- The **container does not rotate while** that triangle's fall sequence is in progress.
+- The piece must **fully settle** (stable state for that drop) **before** either:
+  - **another** triangle is dropped / released into the container, **or**
+  - the **container is rotated**.
+
+#### User-driven cadence
+
+- The **user initiates** each fall into the container (e.g. one tick at a time or settle-to-completion).
+- The **user is responsible** for respecting the cadence: **wait until settle** before starting the next drop **or** applying rotation. (Future product behavior may add hard enforcement; this section states the **intended rule**.)
+
+**Alignment:** This intent matches phase gates such as **GRC-001** (no container rotation while motion is not quiescent) and **PHS-004** (one drop pipeline at a time); see **section 4**.
+
+---
+
 ## 4. Phases (macro)
 
 **Source of truth:** `Design/docs/movement-rules/TRANSITIONS.csv`  
@@ -93,6 +126,7 @@ Legend: **Strong** = ready to implement; **Partial** = needs one more sentence o
 
 - `Design/docs/movement-rules/Gravity.md` — early Q&A
 - `Design/docs/movement-rules/TRANSITIONS.csv` — phase transition table
+- `Design/docs/look-around-and-fall-contract.md` — stub pointer; canonical text is **section 3.2** in this file
 - `Design/README.md` — folder map
 - Mockup: **TICK_EMPTY_TEMPLATE_ONE_TRIANGLE** (slide ticks / settled then rotate)
 
@@ -100,6 +134,7 @@ Legend: **Strong** = ready to implement; **Partial** = needs one more sentence o
 
 ## 8. Changelog (design session)
 
+- **2026-04-15:** Added **section 3.2** look-around zone (every triangle, lit or unlit), canonical cup orientation for falls, single active fall with **no rotation until settled**, and user cadence; stubbed sibling doc to point here.
 - **2026-03-30:** Seeded main doc; locked win/lose + discrete legality; pointed at TRANSITIONS.csv; listed open bites.
 - **2026-03-30 (later):** Locked **slide rule** intent (panels ON; slide preserves posture; not single opposite-orientation hop); tracking updated; rotate rule still open.
 

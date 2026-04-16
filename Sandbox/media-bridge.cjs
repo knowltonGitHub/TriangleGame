@@ -10,6 +10,12 @@ const llmApiKey = String(process.env.TG_OPENAI_API_KEY || "").trim();
 const llmModel = String(process.env.TG_OPENAI_MODEL || "gpt-4.1-mini").trim();
 let dispatchedSeq = 0;
 const dispatchedLog = [];
+const telemetryState = {
+  updatedAt: null,
+  source: "",
+  build: null,
+  lines: [],
+};
 const repoRoot = path.resolve(sandboxDir, "..");
 
 function sendJson(res, status, payload) {
@@ -101,6 +107,16 @@ function clamp(n, lo, hi) {
   return Math.max(lo, Math.min(hi, n));
 }
 
+function parseTickDelayMs(promptLower) {
+  const s = String(promptLower || "");
+  let m = s.match(/(?:with|at)\s+(\d+)\s*(?:second|sec|s)\s+delay(?:\s+between\s+ticks?)?/);
+  if (!m) m = s.match(/delay(?:\s+between\s+ticks?)?\s+(\d+)\s*(?:second|sec|s)/);
+  if (!m) m = s.match(/(\d+)\s*(?:second|sec|s)\s+between\s+ticks?/);
+  if (!m) m = s.match(/\btick\s+delay\s*(\d+)\s*(?:second|sec|s)\b/);
+  if (!m || !m[1]) return 0;
+  return clamp(parseIntSafe(m[1], 0) * 1000, 0, 10000);
+}
+
 function localCommandPlan(promptRaw) {
   const prompt = String(promptRaw || "").trim();
   const s = prompt.toLowerCase().replace(/\badn\b/g, "and");
@@ -131,11 +147,23 @@ function localCommandPlan(promptRaw) {
 
   m = s.match(/fall(?:\s+for)?\s*(\d+)?\s*ticks?/);
   if (m) {
-    actions.push({ op: "fall", ticks: clamp(parseIntSafe(m[1] || 1, 1), 1, 200) });
+    const tickDelayMs = parseTickDelayMs(s);
+    const action = { op: "fall", ticks: clamp(parseIntSafe(m[1] || 1, 1), 1, 200) };
+    if (tickDelayMs > 0) action.tickDelayMs = tickDelayMs;
+    actions.push(action);
   } else {
     m = s.match(/\bfall\s+(\d+)\b/);
-    if (m) actions.push({ op: "fall", ticks: clamp(parseIntSafe(m[1], 1), 1, 200) });
-    else if (/\bfall\b/.test(s)) actions.push({ op: "fall", ticks: 1 });
+    if (m) {
+      const tickDelayMs = parseTickDelayMs(s);
+      const action = { op: "fall", ticks: clamp(parseIntSafe(m[1], 1), 1, 200) };
+      if (tickDelayMs > 0) action.tickDelayMs = tickDelayMs;
+      actions.push(action);
+    } else if (/\bfall\b/.test(s)) {
+      const tickDelayMs = parseTickDelayMs(s);
+      const action = { op: "fall", ticks: 1 };
+      if (tickDelayMs > 0) action.tickDelayMs = tickDelayMs;
+      actions.push(action);
+    }
   }
 
   if (!actions.length) {
@@ -214,7 +242,10 @@ function normalizeActionPlan(obj) {
       if (id >= 0) out.actions.push({ op: "light", id });
     } else if (a.op === "fall") {
       const ticks = clamp(parseIntSafe(a.ticks, 1), 1, 200);
-      out.actions.push({ op: "fall", ticks });
+      const tickDelayMs = clamp(parseIntSafe(a.tickDelayMs, 0), 0, 10000);
+      const action = { op: "fall", ticks };
+      if (tickDelayMs > 0) action.tickDelayMs = tickDelayMs;
+      out.actions.push(action);
     }
   });
   return out;
@@ -229,7 +260,7 @@ async function llmCommandPlan(prompt, context) {
     "Allowed actions:",
     "- {\"op\":\"stopRepeatTopMiddleSettle\"}",
     "- {\"op\":\"light\",\"id\":number}",
-    "- {\"op\":\"fall\",\"ticks\":number}",
+    "- {\"op\":\"fall\",\"ticks\":number,\"tickDelayMs\":number(optional)}",
     "- {\"op\":\"settle\"}",
     "- {\"op\":\"allOff\"}",
     "- {\"op\":\"repeatTopMiddleSettle\",\"repeats\":16,\"maxTicksPerDrop\":140,\"tickDelayMs\":1000,\"spawnDelayMs\":800,\"spawnId\":16}",
@@ -331,6 +362,25 @@ const server = http.createServer(async (req, res) => {
         path: filePath,
         mtimeMs: Number(st.mtimeMs || 0),
         size: Number(st.size || 0),
+      });
+      return;
+    }
+
+    if (req.method === "POST" && req.url === "/telemetry") {
+      const body = await parseBody(req);
+      const rawLines = Array.isArray(body.lines) ? body.lines : [];
+      const cleanLines = rawLines
+        .map((x) => String(x == null ? "" : x).replace(/\s+$/g, ""))
+        .filter((x) => x.length > 0)
+        .slice(0, 400);
+      telemetryState.lines = cleanLines;
+      telemetryState.source = String(body.source || "").slice(0, 80);
+      telemetryState.build = Number.isFinite(Number(body.build)) ? Math.trunc(Number(body.build)) : null;
+      telemetryState.updatedAt = new Date().toISOString();
+      sendJson(res, 200, {
+        ok: true,
+        accepted: telemetryState.lines.length,
+        updatedAt: telemetryState.updatedAt,
       });
       return;
     }
@@ -438,6 +488,19 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    if (req.method === "POST" && req.url === "/shutdown") {
+      sendJson(res, 200, { ok: true, shuttingDown: true });
+      setTimeout(() => {
+        try {
+          server.close(() => process.exit(0));
+          setTimeout(() => process.exit(0), 800);
+        } catch (_) {
+          process.exit(0);
+        }
+      }, 80);
+      return;
+    }
+
     if (req.method === "POST" && req.url === "/load-container-file") {
       const body = await parseBody(req);
       const filePath = resolveSandboxJsonPath(body.path || "");
@@ -490,6 +553,20 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    if (req.method === "GET" && req.url.startsWith("/telemetry")) {
+      const u = parseUrl(req.url);
+      const limit = clamp(parseIntSafe(u.searchParams.get("limit") || "80", 80), 1, 400);
+      sendJson(res, 200, {
+        ok: true,
+        updatedAt: telemetryState.updatedAt,
+        source: telemetryState.source,
+        build: telemetryState.build,
+        count: telemetryState.lines.length,
+        lines: telemetryState.lines.slice(0, limit),
+      });
+      return;
+    }
+
     sendJson(res, 404, { error: "not found" });
   } catch (e) {
     sendJson(res, 500, { error: e && e.message ? e.message : String(e) });
@@ -498,6 +575,6 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(port, "127.0.0.1", () => {
   console.log(`Triangle media bridge listening on http://127.0.0.1:${port}`);
-  console.log("Endpoints: GET /health, GET /page-version, GET /next-command, POST /make-media, POST /extract-frames, POST /run-scenario, POST /play-command, POST /dispatch-command, POST /load-container-file, POST /load-rules-file");
+  console.log("Endpoints: GET /health, GET /page-version, GET /next-command, GET /telemetry, POST /telemetry, POST /make-media, POST /extract-frames, POST /run-scenario, POST /play-command, POST /dispatch-command, POST /shutdown, POST /load-container-file, POST /load-rules-file");
   console.log(`LLM command mode: ${llmApiKey ? `enabled (${llmModel})` : "disabled (set TG_OPENAI_API_KEY)"}`);
 });

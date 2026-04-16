@@ -34,7 +34,22 @@ media-bridge.cjs
       Make MP4/GIF
       MP4->PNG
       Run scenario
+      Check bridge / Stop bridge
   - Browser security note: page JS cannot execute local ffmpeg directly; this bridge is the safe opt-in local integration.
+
+bridge-supervisor.cjs (optional)
+  - Optional local supervisor for bridge/service controls from the page UI.
+  - Start it once in a terminal:
+      node Sandbox/bridge-supervisor.cjs
+  - The page can then use:
+      Check supervisor
+      Start bridge / Stop bridge
+      Start service / Stop service
+  - Optional service target:
+      set environment variable `TG_SUPERVISOR_SERVICE_NAME` before starting supervisor.
+      Example (PowerShell):
+        $env:TG_SUPERVISOR_SERVICE_NAME="YourWindowsServiceName"
+        node Sandbox/bridge-supervisor.cjs
 
 run-tick-scenario.cjs + scenarios/demo-run.json
   - Headless automation: set container, light IDs, click Fall N ticks, save PNG per tick, then auto-build MP4/GIF.
@@ -65,7 +80,7 @@ run-physics-tests.cjs + scenarios/physics-tests.json
   - Assertion examples:
       stable, settleTicksMax, onCountEquals, onCountAtLeast, includesIds, excludesIds, nextTickHasPhase, nextTickHasAnyPhase, nextTickLacksAnyPhase
   - Automation note:
-      `__TG_AUTOMATION__.triangleSightById(id)` returns what a piece currently sees (lit/unlit edge neighbors and vertex-neighbors, plus nearest lane targets).
+      Physics uses mesh keys `ti,tj,kind` internally. `__TG_AUTOMATION__.triangleSightFromKey("ti,tj,kind")` is the canonical sight API; `triangleSightById(debugLabel)` resolves a human debug label to a key first. Sight objects list neighbor keys (`litEdgeNeighborKeys`, …) and optional `laneAnyLabel` / `laneFreeLabel` for readable logs only.
 
 find-phase-seeds.cjs
   - Helper to scan IDs and find seeds that trigger target next-tick phases (lane/wall/pivot-like) in V container.
@@ -74,12 +89,14 @@ find-phase-seeds.cjs
 
 send-play-command.cjs
   - CLI helper to send one text command to the local bridge endpoint `/dispatch-command`.
+  - Can also fetch latest bridge-cached telemetry via `GET /telemetry`.
   - Example:
       node Sandbox/send-play-command.cjs "light triangle 20 and fall 2 ticks"
       node Sandbox/send-play-command.cjs "open better tri.json"
       node Sandbox/send-play-command.cjs "load physics rules"
       node Sandbox/send-play-command.cjs "run top middle fill demo"
       node Sandbox/send-play-command.cjs "stop demo"
+      node Sandbox/send-play-command.cjs --telemetry --limit 40
   - Requires bridge running:
       node Sandbox/media-bridge.cjs
   - To execute on the page, keep `index.html` open; it polls `/next-command` and applies dispatched actions.

@@ -1,15 +1,17 @@
-﻿# Design (single place for game design work)
+# Design (single place for game design work)
 
 ## Authoritative design spec
 
 **Living doc:** `docs/GAME_DESIGN.md` (win/lose, legal moves, phase CSV links, asked/answered tracking).  
 Update it whenever design decisions land—no separate prompt needed.
 
+**Look-around zone and single-piece fall contract:** **`docs/GAME_DESIGN.md` section 3.2** (canonical). `docs/look-around-and-fall-contract.md` is a **stub** for older links.
+
 ## Layout
 
 | Folder | Purpose |
 |--------|---------|
-| `docs/` | **GAME_DESIGN.md** (main spec), `movement-rules/` (`Gravity.md`, `TRANSITIONS.csv`, …). |
+| `docs/` | **GAME_DESIGN.md** (main spec; includes **section 3.2** fall/look-around intent), **look-around-and-fall-contract.md** (stub pointer), `movement-rules/` (`Gravity.md`, `TRANSITIONS.csv`, …). |
 | `scripts/` | Python visualization and geometry experiments (`labeled.py`, `abc.py`, …). Run scripts from this folder. |
 | `assets/mockups/` | PNG mockups (`TriangleContainer*.png`, `TriangleField.png`, …). |
 | `archives/` | Zips and older repo snapshots (`repo-snapshots/`, `templates.zip`). |

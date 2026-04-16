@@ -21,11 +21,25 @@
       "requires": ["wallModeActive"]
     },
     {
+      "id": "bottomFlipBoundary",
+      "candidate": "bottomFlip",
+      "enabled": true,
+      "requires": ["isDownPointy", "nearBottomBoundary", "isBoundary"],
+      "forbids": ["wallModeActive"]
+    },
+    {
+      "id": "bottomFlipIsolatedInterior",
+      "candidate": "bottomFlip",
+      "enabled": true,
+      "requires": ["isDownPointy", "nearBottomBoundary", "isolatedNoAdjacentLit"],
+      "forbids": ["wallModeActive", "isBoundary"]
+    },
+    {
       "id": "lane",
       "candidate": "lane",
       "enabled": true,
       "requires": [],
-      "forbids": ["wallModeActive"]
+      "forbids": ["wallModeActive", "nearBottomBoundary"]
     },
     {
       "id": "downPointyBlockedComposite",
@@ -39,13 +53,6 @@
       "candidate": "downPointyBlockedFlip",
       "enabled": true,
       "requires": ["isDownPointy", "laneBlockedNearest"],
-      "forbids": ["wallModeActive"]
-    },
-    {
-      "id": "bottomFlip",
-      "candidate": "bottomFlip",
-      "enabled": true,
-      "requires": ["isDownPointy", "isBoundary", "nearBottomBoundary"],
       "forbids": ["wallModeActive"]
     },
     {

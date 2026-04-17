@@ -52,7 +52,7 @@ Implementation detail for code: express this as an explicit **slide primitive** 
 
 ### 3.2 Look-around zone and single-piece fall cadence (LOCKED - intent)
 
-**Status:** Product rules below are design intent. Sandbox `index.html` may not enforce all of this in code yet; this section states the target contract.
+**Status:** Product rules below are design intent. Sandbox `playground.html` may not enforce all of this in code yet; this section states the target contract.
 
 #### Look-around ("ZONE of awareness")
 

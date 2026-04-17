@@ -2,13 +2,9 @@ const fs = require("fs");
 const vm = require("vm");
 const path = require("path");
 
-const htmlPath = path.resolve(__dirname, "index.html");
-const html = fs.readFileSync(htmlPath, "utf8");
-const scriptMatch = html.match(/<script>([\s\S]*?)<\/script>/);
-
-if (!scriptMatch) {
-  throw new Error("Could not find inline script in Sandbox/index.html");
-}
+const htmlPath = path.resolve(__dirname, "playground.html");
+const jsPath = path.resolve(__dirname, "js", "playground.js");
+const scriptSource = fs.readFileSync(jsPath, "utf8");
 
 const context = {
   console,
@@ -27,7 +23,7 @@ const context = {
 context.globalThis = context;
 
 vm.createContext(context);
-new vm.Script(scriptMatch[1], { filename: "Sandbox/index.html:inline-script" }).runInContext(context);
+new vm.Script(scriptSource, { filename: "Sandbox/js/playground.js" }).runInContext(context);
 
 if (!context.__TG_DEBUG__ || typeof context.__TG_DEBUG__.previewIdsForCell !== "function") {
   throw new Error("Headless debug API not available");
@@ -52,7 +48,7 @@ if (maskTraceIdx >= 0) {
   const cellId = Number(args[maskTraceIdx + 2] || "427");
   const mask = JSON.parse(fs.readFileSync(maskPath, "utf8"));
   if (typeof context.__TG_DEBUG__.fallTraceWithSightForMask !== "function") {
-    throw new Error("fallTraceWithSightForMask not available (need newer index.html)");
+    throw new Error("fallTraceWithSightForMask not available (need newer Sandbox/js/playground.js)");
   }
   const rows = context.__TG_DEBUG__.fallTraceWithSightForMask(mask, cellId);
   process.stdout.write(JSON.stringify(rows, null, 2));

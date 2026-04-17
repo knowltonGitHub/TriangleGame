@@ -1,6 +1,6 @@
 /**
  * Renders a containerCellMask JSON (triangular mesh) at editor-equivalent rotations
- * (60° CW steps, 0..5, same as editor.html / index.html) and writes centered PNGs via Playwright.
+ * (60° CW steps, 0..5, same as editor.html / playground.html) and writes centered PNGs via Playwright.
  *
  * Produces:
  *   - export/container-rotations/<slug>-clean-step-N-cw60deg.png
@@ -77,7 +77,7 @@ function kKey(t) {
 }
 
 /**
- * Same iteration and labeling as index.html build() when cellMaskKeys is set.
+ * Same iteration and labeling as playground.html / js/playground.js build() when cellMaskKeys is set.
  */
 function buildCellsFromMask(maskKeys, side, ox, oy, gridRows, gridCols) {
   const maskSet = new Set(maskKeys.map(String));

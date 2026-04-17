@@ -39,7 +39,7 @@ async function main() {
   }
   const sandboxDir = __dirname;
   const repoRoot = path.resolve(sandboxDir, "..");
-  const pageUrl = "file:///" + path.join(sandboxDir, "index.html").replace(/\\/g, "/");
+  const pageUrl = "file:///" + path.join(sandboxDir, "playground.html").replace(/\\/g, "/");
   const browser = await playwright.chromium.launch({ headless: true, channel: "chrome" });
   const page = await browser.newPage({ viewport: { width: 1200, height: 1300 } });
   await page.goto(pageUrl, { waitUntil: "domcontentloaded" });

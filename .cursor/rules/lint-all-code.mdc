@@ -15,7 +15,7 @@ Treat **linting / validation** as part of the same task as the code change—not
 
 ## JavaScript (including inline in HTML)
 
-- **Inline scripts** (e.g. `Sandbox/index.html`): after substantive edits, run **`node Sandbox/headless-preview.cjs`** (or the project’s equivalent full-parse check) so **brace/syntax errors** fail before manual testing.
+- **Inline scripts** (e.g. `Sandbox/playground.html`): after substantive edits, run **`node Sandbox/headless-preview.cjs`** (or the project’s equivalent full-parse check) so **brace/syntax errors** fail before manual testing.
 - **Standalone** `.js` / `.cjs` / `.mjs`: run **`node --check <file>`** when the change is non-trivial.
 
 ## JSON

@@ -1,0 +1,12 @@
+﻿---
+description: Physics baseline for Sandbox until break-right lane rule is fully verified
+globs: Sandbox/playground.html,Sandbox/rules/triangle-physics.rules.v1.json
+alwaysApply: false
+---
+
+# Sandbox physics fallback (agent)
+
+Until **break-right** / lane tie behavior is fully verified against user expectations:
+
+- Treat **build 145** and **`Sandbox/rules/triangle-physics.rules.v1.json`** as the **reference baseline** for fall/lane semantics when diagnosing regressions or comparing behavior.
+- Prefer **minimal** diffs in `Sandbox/playground.html` physics; do not layer speculative lane overrides without explicit maintainer direction.

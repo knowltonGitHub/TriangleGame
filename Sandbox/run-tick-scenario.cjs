@@ -89,7 +89,7 @@ async function main() {
   const outDir = path.resolve(repoRoot, scenario.outputDir || path.join("Sandbox", "auto-runs", runName));
   fs.mkdirSync(outDir, { recursive: true });
 
-  const pageUrl = "file:///" + path.join(sandboxDir, "index.html").replace(/\\/g, "/");
+  const pageUrl = "file:///" + path.join(sandboxDir, "playground.html").replace(/\\/g, "/");
   const browser = await playwright.chromium.launch({ headless: true, channel: browserChannel });
   const page = await browser.newPage({ viewport: { width: 1360, height: 1500 } });
   await page.goto(pageUrl, { waitUntil: "domcontentloaded" });

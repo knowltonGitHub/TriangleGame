@@ -354,7 +354,7 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === "GET" && req.url.startsWith("/page-version")) {
       const u = parseUrl(req.url);
-      const rel = String(u.searchParams.get("path") || "index.html").trim();
+      const rel = String(u.searchParams.get("path") || "playground.html").trim();
       const filePath = resolveSandboxFilePath(rel);
       const st = fs.statSync(filePath);
       sendJson(res, 200, {

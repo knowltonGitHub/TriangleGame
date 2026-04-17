@@ -1,10 +1,10 @@
 ﻿---
 description: Polygon container mesh in Sandbox — warn before changing inclusion logic or overlays.
-globs: Sandbox/index.html
+globs: Sandbox/playground.html
 alwaysApply: false
 ---
 
-# Triangle container (`containerPolygon`) in `Sandbox/index.html`
+# Triangle container (`containerPolygon`) in `Sandbox/playground.html`
 
 **Before editing** `pointInPolygonInclusive`, `distToSeg`, `triTouchesContainer` (the `containerPolygon` branch), the `build()` block that expands bounds for `containerPolygon`, `cloneLayoutV()`'s `containerPolygon`, or adding any **separate SVG stroke/outline** for the container: **tell the user** this change can alter how the triangle container is drawn, and **wait for their OK** unless they already asked for that change.
 

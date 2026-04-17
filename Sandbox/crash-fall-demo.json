@@ -16,6 +16,6 @@
   "onIds": [],
   "historyIndex": 0,
   "meta": {
-    "note": "Turn any triangle ON, click Fall 1 tick; Error at fallTickSequential (intentional). Remove fallCrashDemo from layout or open index.html without ?crash=1 for normal fall."
+    "note": "Turn any triangle ON, click Fall 1 tick; Error at fallTickSequential (intentional). Remove fallCrashDemo from layout or open playground.html without ?crash=1 for normal fall."
   }
 }

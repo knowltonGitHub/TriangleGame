@@ -1,185 +1,5 @@
-﻿<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Triangle playground</title>
-<!-- Bump PLAYGROUND_BUILD in the script when you change this file (see var near top of IIFE). -->
-<style>
-:root{--bg:#1a1d23;--p:#252931;--t:#e8eaed;--m:#9aa0a6;--s:#5f6368;--on:#4ade80;--os:#22c55e;--off:rgba(255,255,255,.11)}
-*{box-sizing:border-box}
-body{margin:0;font-family:system-ui,sans-serif;background:var(--bg);color:var(--t);min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:12px}
-h1{font-size:1.1rem;margin:0 0 8px}
-.h{color:var(--m);font-size:.85rem;margin-bottom:12px;max-width:56rem;text-align:center}
-.tb{display:flex;flex-wrap:wrap;gap:10px;justify-content:flex-start;align-items:stretch;margin-bottom:8px;padding:10px 14px;background:var(--p);border-radius:10px;max-width:min(100%,980px);width:100%}
-.tbGlobal{display:flex;align-items:center;gap:8px;flex:1 1 100%}
-.tbMini{padding:6px 10px;font-size:.78rem;border-radius:7px}
-.tbGroup{display:block;border:1px solid #6f8fb1;border-radius:10px;background:#d9ecff;min-width:260px;flex:1 1 320px}
-.tbGroup summary{list-style:none;cursor:pointer;padding:8px 10px;color:var(--m);font-size:.74rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;user-select:none}
-.tbGroup summary::-webkit-details-marker{display:none}
-.tbGroup summary::before{content:"▾ ";color:#8ab4f8}
-.tbGroup:not([open]) summary::before{content:"▸ "}
-.tbGroupBody{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:0 8px 8px}
-.tbGroup:not([open]) .tbGroupBody{display:none}
-button,.fl{background:#3c4043;color:var(--t);border:1px solid var(--s);padding:8px 12px;border-radius:8px;cursor:pointer;font-size:.85rem}
-button:disabled{opacity:.45;cursor:not-allowed}
-.iconBtn{display:inline-flex;align-items:center;gap:6px}
-.btnIcon{width:14px;height:14px;display:inline-block;flex:0 0 14px;pointer-events:none}
-.btnIcon svg{width:14px;height:14px;display:block}
-.proofBtn{background:#2f3f56;border-color:#5b7aa3}
-.proofBtn:hover{background:#39506d}
-.fl input{display:none}
-.sw{background:var(--p);border-radius:12px;padding:2px;overflow:visible;max-width:100%;border:1px solid #3c4043;max-height:none}
-#triangleBoardHost{display:flex;flex-direction:column;align-items:stretch}
-#triangleBoardHost>svg{align-self:center;flex-shrink:0}
-.board-build-banner{font-size:1.15rem;font-weight:800;letter-spacing:.08em;color:var(--t);padding:10px 14px 8px;text-align:left;background:var(--bg);border-bottom:2px solid #4ade8044;position:sticky;top:0;z-index:3;pointer-events:none;margin:0;border-radius:10px 10px 0 0;flex-shrink:0}
-svg{display:block;overflow:visible}
-path.tessGrid{fill:none;stroke:rgba(255,255,255,.2);stroke-width:1;stroke-linecap:square;stroke-linejoin:miter;pointer-events:none;shape-rendering:geometricPrecision}
-path.meshOff{fill:var(--off);stroke:var(--off);stroke-width:.65;stroke-linejoin:miter;shape-rendering:geometricPrecision}
-path.meshOn{fill:var(--on);stroke:var(--on);stroke-width:.65;stroke-linejoin:miter;shape-rendering:geometricPrecision}
-path.meshPath{stroke-width:.55;stroke-linejoin:miter;shape-rendering:geometricPrecision;pointer-events:none}
-path.hit{stroke:none;fill:rgba(0,0,0,.01);cursor:pointer}
-path.hit:hover{fill:rgba(255,255,255,.09)}
-text.L{pointer-events:none;font-size:11px;fill:var(--t);text-anchor:middle;dominant-baseline:central;font-weight:600}
-text.L.numMuted{fill:var(--m)}
-svg.hide-nums text.L{display:none}
-text.rowR{pointer-events:none;font-size:10px;fill:#8ab4f8;text-anchor:end;dominant-baseline:central;opacity:.95;font-weight:600}
-pre.o{margin-top:8px;padding:12px;background:#0d1117;border-radius:8px;font-size:11px;max-width:min(100%,980px);overflow:auto;color:#c9d1d9;border:1px solid #30363d}
-#telemetryLogOutputPanel{margin-top:4px;padding:10px;background:#0d1117;border-radius:8px;font-size:11px;max-width:min(100%,980px);width:100%;height:min(14vh,130px);min-height:70px;overflow:auto;color:#c9d1d9;border:1px solid #30363d;border-left:3px solid #58a6ff;font-family:ui-monospace,monospace;white-space:pre-wrap}
-#telemetryLatestLinePreview{max-width:min(100%,980px);width:100%;margin:8px 0 0;padding:6px 8px;border:1px solid #334155;border-radius:8px;background:#111827;color:#c9d1d9;font-size:.76rem;font-family:ui-monospace,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.pp-legend{margin-top:4px;display:flex;flex-wrap:wrap;gap:6px;max-width:min(100%,980px);width:100%}
-.pp-chip{display:inline-flex;align-items:center;gap:6px;padding:2px 8px;border:1px solid #3c4043;border-radius:999px;background:#1f2430;color:#c9d1d9;font-size:11px;font-family:ui-monospace,monospace}
-.pp-swatch{width:10px;height:10px;border-radius:2px;display:inline-block;border:1px solid rgba(255,255,255,.35)}
-.shotOpt{display:inline-flex;align-items:center;gap:6px;color:var(--t);font-size:.82rem;background:#2f333b;border:1px solid #4b5158;padding:7px 10px;border-radius:8px}
-.shotOpt input[type="checkbox"]{accent-color:#58a6ff}
-.shotOpt input[type="text"]{width:78px;background:#1f232a;color:var(--t);border:1px solid #5f6368;border-radius:6px;padding:4px 6px;font-size:.8rem}
-.bridgeBadge{display:inline-flex;align-items:center;gap:6px;font-size:.8rem;padding:7px 10px;border-radius:999px;border:1px solid #5f6368;background:#2f333b;color:#c9d1d9}
-.bridgeDot{width:8px;height:8px;border-radius:50%;display:inline-block;background:#9aa0a6}
-.bridgeBadge.ok .bridgeDot{background:#22c55e;box-shadow:0 0 0 2px rgba(34,197,94,.25)}
-.bridgeBadge.off .bridgeDot{background:#ef4444;box-shadow:0 0 0 2px rgba(239,68,68,.2)}
-#historySnapshotPositionLabel{font-size:.8rem;margin:4px 0 8px;color:var(--m)}
-.pg-ver{font-size:.72rem;color:#8ab4f8;font-weight:700;margin-left:10px;white-space:nowrap}
-.chatRow{display:flex;gap:8px;max-width:min(100%,980px);width:100%;margin:6px 0 8px}
-.chatInp{flex:1;background:#1f232a;color:var(--t);border:1px solid #5f6368;border-radius:8px;padding:9px 10px;font-size:.86rem}
-.ftFloatStack{position:fixed;right:12px;z-index:1200;display:flex;flex-direction:column;gap:8px;align-items:stretch;width:max-content;max-width:min(220px,calc(100vw - 24px))}
-.ftFloatStackTop{top:12px}
-.ftFloatStackBottom{bottom:12px}
-.ftFloatStack .ftFloat{position:relative;box-shadow:0 4px 14px rgba(0,0,0,.35)}
-@media (max-width:900px){
-.ftFloatStack{right:8px;gap:6px;max-width:min(200px,calc(100vw - 16px))}
-.ftFloatStack .ftFloat{padding:7px 10px;font-size:.8rem}
-}
-path.fallChoiceHighlight{fill:rgba(236,72,153,.14);stroke:#f472b6;stroke-width:2.5;stroke-dasharray:6 4;pointer-events:none;shape-rendering:geometricPrecision}
-text.fallChoiceCaption{pointer-events:none;font-size:11px;font-weight:700;fill:#fbcfe8;text-anchor:middle;dominant-baseline:middle;filter:drop-shadow(0 0 3px rgba(0,0,0,.85))}
-.fallDecisionPanel{max-width:min(100%,980px);width:100%;margin:8px 0 0;padding:10px 12px;background:#1e1b2e;border:1px solid #6d28d9;border-radius:10px;box-sizing:border-box}
-.fallDecisionPanel h2{font-size:.72rem;margin:0 0 6px;color:#c4b5fd;text-transform:uppercase;letter-spacing:.06em;font-weight:700}
-.fallDecisionRow{font-family:ui-monospace,monospace;font-size:.76rem;color:#fce7f3;border-left:3px solid #a78bfa;padding:6px 8px;margin:4px 0;background:rgba(0,0,0,.2);border-radius:0 8px 8px 0;white-space:pre-wrap;line-height:1.35}
-.fallDecisionEmpty{color:var(--m);font-size:.78rem;padding:4px 0}
-</style>
-</head>
-<body>
-<h1>Triangle board playground <span id="playgroundBuildVersionLabel" class="pg-ver"></span></h1>
-<p class="h" style="margin-bottom:6px"><a href="editor.html" style="color:#8ab4f8">Container editor</a> — separate page to paint container cell masks and save JSON.</p>
-<p class="h"><b>Sandbox</b>: click triangles to light them, then use <b>Fall 1 tick</b> / <b>Settle</b> to test movement rules on a triangular lattice. Telemetry stays synced with board moves (<code>#a&rarr;#b</code>, row labels <code>rN</code>).</p>
-<details class="h" style="max-width:980px;margin:0 0 6px">
-<summary style="cursor:pointer;color:#8ab4f8">Physics notes (expand)</summary>
-<p style="margin:6px 0 0"><b>Lane step:</b> empty downhill same-<code>kind</code> cells, min <code>|cross|</code> to gravity line; tier ties: min <code>|lateral|</code>, then +<b>rightPerp</b>, then along-gravity (removed old interior same-column exclusion so the mesh “below” cell can compete). <b>Opposite-kind flips (wall / interior / sight):</b> same <code>|cross|</code> / along ties prefer maximum <b>+rightPerp</b>. <b>Wall tip:</b> downhill rotation to boundary cell. <b>Interior tip:</b> +rightPerp among interior flips. <b>Wall pivot:</b> downhill flip across a wall edge. <b>Lay-flat:</b> on boundary, more wall contact before lane slide. <b>Crash demo:</b> <code>?crash=1</code> or <code>crash-fall-demo.json</code>.</p>
-</details>
-<div class="tb">
-<div class="tbGlobal">
-<button type="button" id="toolbarExpandAllButton" class="tbMini" title="Open all toolbar groups">Expand All</button>
-<button type="button" id="toolbarCollapseAllButton" class="tbMini" title="Collapse all toolbar groups">Collapse All</button>
-</div>
-<details class="tbGroup" open>
-<summary>Board</summary>
-<div class="tbGroupBody">
-<button type="button" id="allTrianglesOffButton" title="Turn all triangles OFF">All OFF</button>
-<button type="button" id="allTrianglesOnButton" title="Turn all triangles ON">All ON</button>
-<button type="button" id="invertLitTrianglesButton" title="Invert current lit/unlit triangles">Invert</button>
-<button type="button" id="toggleTriangleLabelVisibilityButton" title="Hide or show triangle numbers">Hide Numbers</button>
-<button type="button" id="fallOneTickButton" title="Advance simulation by one fall tick">Fall 1 Tick</button>
-<button type="button" id="settleUntilStableButton" title="Run fall ticks until pieces settle">Settle</button>
-<button type="button" id="previewSettlePathButton" title="Show triangles the engine expects pieces to visit if you Settle (same rules as Fall) — light yellow">Preview path</button>
-<div id="pathPreviewColorLegend" class="pp-legend" aria-label="Path preview legend"></div>
-<pre id="pathPreviewTriangleIdsBox" class="h" style="margin:4px 0 0;max-width:980px;width:100%;text-align:left;font-size:11px;white-space:pre-wrap;display:none"></pre>
-<button type="button" id="clearTelemetryButton" title="Clear telemetry log output">Clear Log</button>
-<button type="button" id="copyTelemetryToClipboardButton" title="Copy telemetry log text to clipboard">Copy Telemetry</button>
-</div>
-</details>
-<details class="tbGroup" open>
-<summary>Container</summary>
-<div class="tbGroupBody">
-<button type="button" id="containerPresetShapeTButton" title="Load container from Sandbox/presets/container-default-T.json">T</button>
-<button type="button" id="containerPresetShapeVButton" title="Load container from Sandbox/presets/container-default-V.json">V</button>
-<button type="button" id="rotateContainerClockwiseButton" title="Rotate container 60 degrees clockwise">Rotate 60 CW</button>
-<button type="button" id="rotateContainerCounterclockwiseButton" title="Rotate container 60 degrees counterclockwise">Rotate 60 CCW</button>
-<button type="button" id="copyBoardStateJsonButton" title="Copy current board state JSON">Copy JSON</button>
-<label class="fl" title="Load playground save JSON or editor containerCellMask">Load<input type="file" id="loadBoardStateJsonInput" accept="application/json,.json" title="Playground save or editor containerCellMask"/></label>
-</div>
-</details>
-<details class="tbGroup" open>
-<summary>Media & scenarios</summary>
-<div class="tbGroupBody">
-<label class="shotOpt" title="Capture a screenshot automatically on each tick"><input type="checkbox" id="screenshotEachTickCheckbox"/>Screenshot each tick</label>
-<label class="shotOpt" title="Set screenshot filename tag prefix">Tag <input type="text" id="screenshotFilenameTagInput" value="tg" maxlength="24" title="Filename prefix"/></label>
-<button type="button" id="screenshotSequenceResetButton" title="Reset screenshot counter">Reset shot #</button>
-<button type="button" id="screenshotBoardNowButton" title="Capture board screenshot now">Screenshot Now</button>
-<button type="button" id="buildMediaFromTickFramesButton" title="Build MP4/GIF from current tick PNG files (requires local bridge)">Make MP4/GIF</button>
-<button type="button" id="extractPngFramesFromMp4Button" title="Extract PNG frames from an MP4 (requires local bridge)">MP4-&gt;PNG</button>
-<button type="button" id="runHeadlessScenarioButton" title="Run headless tick scenario and auto-build MP4/GIF (requires local bridge)">Run Scenario</button>
-<button type="button" id="runProofDemoButton" class="proofBtn" title="Run short scripted proof animation and print PASS/FAIL in telemetry">Proof Demo</button>
-</div>
-</details>
-<details class="tbGroup" open>
-<summary>Bridge & history</summary>
-<div class="tbGroupBody">
-<span id="mediaBridgeStatusBadge" class="bridgeBadge off" title="Local media bridge status"><span class="bridgeDot"></span><span id="mediaBridgeStatusText">Bridge: offline</span></span>
-<span id="bridgeSupervisorStatusBadge" class="bridgeBadge off" title="Local bridge supervisor status"><span class="bridgeDot"></span><span id="bridgeSupervisorStatusText">Supervisor: offline</span></span>
-<button type="button" id="supervisorHealthCheckButton" class="iconBtn" title="Re-check supervisor connection"><span class="btnIcon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M11 3a8 8 0 1 0 7.2 4.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M20 3v5h-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span>Check Supervisor</span></button>
-<button type="button" id="mediaBridgeHealthCheckButton" class="iconBtn" title="Re-check bridge connection"><span class="btnIcon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M4 16h16M6 12h12M9 8h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M6 16l-1.5 4M18 16l1.5 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span><span>Check Bridge</span></button>
-<button type="button" id="mediaBridgeStartButton" class="iconBtn" title="Start local bridge via supervisor"><span class="btnIcon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M4 16h16M6 12h12M9 8h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M6 16l-1.5 4M18 16l1.5 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M10 10l6 4-6 4z" fill="currentColor"/></svg></span><span>Start Bridge</span></button>
-<button type="button" id="mediaBridgeStopButton" class="iconBtn" title="Stop local bridge process"><span class="btnIcon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M4 16h16M6 12h12M9 8h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M6 16l-1.5 4M18 16l1.5 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><rect x="9" y="9" width="6" height="6" fill="currentColor"/></svg></span><span>Stop Bridge</span></button>
-<button type="button" id="supervisorWindowsServiceStartButton" class="iconBtn" title="Start configured Windows service via supervisor"><span class="btnIcon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="2"/><path d="M10 9l5 3-5 3z" fill="currentColor"/></svg></span><span>Start Service</span></button>
-<button type="button" id="supervisorWindowsServiceStopButton" class="iconBtn" title="Stop configured Windows service via supervisor"><span class="btnIcon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="2"/><rect x="9" y="9" width="6" height="6" fill="currentColor"/></svg></span><span>Stop Service</span></button>
-<label class="shotOpt" title="Reload page automatically when Sandbox/index.html changes (requires local bridge)"><input type="checkbox" id="autoReloadOnSandboxSaveCheckbox"/>Auto Refresh</label>
-<button type="button" id="historyBackButton" title="Go to previous history snapshot" disabled>&laquo; Back</button>
-<button type="button" id="historyForwardButton" title="Go to next history snapshot" disabled>Forward &raquo;</button>
-</div>
-</details>
-</div>
-<div class="chatRow">
-<input id="playgroundCommandLineInput" class="chatInp" type="text" placeholder='Try: "light triangle 20 and fall 2 ticks"'/>
-<button type="button" id="runPlaygroundCommandButton" title="Run command from text">Run Command</button>
-</div>
-<p class="h" id="containerShapeSummaryLabel" style="margin:0 0 4px">Container: (loading…)</p>
-<p class="h" id="containerRotationSummaryLabel" style="margin:0 0 4px">Container rotation: 0 deg CW (step 0 of 6)</p>
-<p id="historySnapshotPositionLabel">History: 0 / 0</p>
-<div class="sw" id="triangleBoardHost"></div>
-<div class="fallDecisionPanel" id="fallDecisionSummaryPanel" aria-live="polite">
-<h2>Fall decision (visual, not telemetry)</h2>
-<div id="fallDecisionSummaryPanelBody" class="fallDecisionEmpty">No fall tick yet — use <b>Fall 1 Tick</b> or <b>Settle</b>. Highlights the chosen <i>destination</i> triangle and the rule id.</div>
-</div>
-<pre class="o" id="boardStateJsonOutputPanel" hidden></pre>
-<div id="telemetryLatestLinePreview">latest telemetry: (no messages yet)</div>
-<details class="h" style="max-width:980px;width:100%;margin:8px 0 0">
-<summary style="cursor:pointer;color:#8ab4f8;text-align:left">Telemetry (expand)</summary>
-<p style="font-size:.78rem;color:var(--m);margin:6px 0 2px;max-width:980px;width:100%;text-align:left">Newest on top — each line is one Fall click / one board update.</p>
-<pre id="telemetryLogOutputPanel">(no messages yet)</pre>
-</details>
-<div id="floatingFallControlsStackTop" class="ftFloatStack ftFloatStackTop" aria-label="Floating board controls (top)">
-<button type="button" id="floatingHistoryBackTopButton" class="ftFloat ftFloatAux iconBtn" title="Go to previous history snapshot" disabled><span>&laquo; Back</span></button>
-<button type="button" id="floatingFallOneTickTopButton" class="ftFloat iconBtn" title="Advance simulation by one fall tick"><span>Fall 1 Tick</span></button>
-<button type="button" id="floatingHistoryForwardTopButton" class="ftFloat ftFloatAux iconBtn" title="Go to next history snapshot" disabled><span>Forward &raquo;</span></button>
-</div>
-<div id="floatingFallControlsStackBottom" class="ftFloatStack ftFloatStackBottom" aria-label="Floating board controls (bottom)">
-<button type="button" id="floatingHistoryBackBottomButton" class="ftFloat ftFloatAux iconBtn" title="Go to previous history snapshot" disabled><span>&laquo; Back</span></button>
-<button type="button" id="floatingFallOneTickBottomButton" class="ftFloat iconBtn" title="Advance simulation by one fall tick"><span>Fall 1 Tick</span></button>
-<button type="button" id="floatingHistoryForwardBottomButton" class="ftFloat ftFloatAux iconBtn" title="Go to next history snapshot" disabled><span>Forward &raquo;</span></button>
-</div>
-<script src="presets/playground-default-presets.js"></script>
-<script>
 (function(){
-var PLAYGROUND_BUILD=145;
+var PLAYGROUND_BUILD=150;
 function applyPlaygroundBuildLabel(){var buildLabelText="build "+PLAYGROUND_BUILD,versionElement=document.getElementById("playgroundBuildVersionLabel"),documentTitleElement=document.querySelector("title"),boardBannerElement=document.getElementById("boardBuildBanner");if(versionElement)versionElement.textContent=buildLabelText;if(documentTitleElement)documentTitleElement.textContent="Triangle playground · "+buildLabelText;if(boardBannerElement)boardBannerElement.textContent="BUILD "+PLAYGROUND_BUILD}
 function boardBuildBannerNode(){var bannerElement=document.createElement("div");bannerElement.id="boardBuildBanner";bannerElement.className="board-build-banner";bannerElement.textContent="BUILD "+PLAYGROUND_BUILD;return bannerElement}
 /* Must match Sandbox/editor.html setMesh(...) — max mesh the editor can save as containerCellMask */
@@ -254,6 +74,30 @@ if(layoutForCells.cellMaskKeys&&Array.isArray(layoutForCells.cellMaskKeys)){mask
 if(layoutForCells.containerPolygon&&layoutForCells.containerPolygon.length>=3){polygonPadding=10;worldXMin=1e30;worldXMax=-1e30;worldYMin=1e30;worldYMax=-1e30;for(polygonVertexIndex=0;polygonVertexIndex<layoutForCells.containerPolygon.length;polygonVertexIndex++){if(layoutForCells.containerPolygon[polygonVertexIndex][0]<worldXMin)worldXMin=layoutForCells.containerPolygon[polygonVertexIndex][0];if(layoutForCells.containerPolygon[polygonVertexIndex][0]>worldXMax)worldXMax=layoutForCells.containerPolygon[polygonVertexIndex][0];if(layoutForCells.containerPolygon[polygonVertexIndex][1]<worldYMin)worldYMin=layoutForCells.containerPolygon[polygonVertexIndex][1];if(layoutForCells.containerPolygon[polygonVertexIndex][1]>worldYMax)worldYMax=layoutForCells.containerPolygon[polygonVertexIndex][1]}rowScanMin=Math.floor((worldYMin-originYInLayout)/triangleRowSpacing)-polygonPadding;rowScanMax=Math.ceil((worldYMax-originYInLayout)/triangleRowSpacing)+polygonPadding;scanRowLowerBound=Math.min(0,rowScanMin);scanRowUpperBound=Math.max(gridRowCount,rowScanMax);scanColLowerBound=Math.floor((worldXMin-originXInLayout-scanRowUpperBound*cellSideInLayout/2)/cellSideInLayout)-polygonPadding;scanColUpperBound=Math.ceil((worldXMax-originXInLayout-scanRowLowerBound*cellSideInLayout/2)/cellSideInLayout)+polygonPadding}
 for(rowIndex=scanRowLowerBound;rowIndex<scanRowUpperBound;rowIndex++)for(columnIndex=scanColLowerBound;columnIndex<scanColUpperBound;columnIndex++)for(orientationKind=0;orientationKind<2;orientationKind++){triangleVertices=triVertsFromCell(columnIndex,rowIndex,orientationKind,cellSideInLayout,originXInLayout,originYInLayout);if(!triTouchesContainer(layoutForCells,triangleVertices))continue;centroidX=(triangleVertices[0].x+triangleVertices[1].x+triangleVertices[2].x)/3;centroidY=(triangleVertices[0].y+triangleVertices[1].y+triangleVertices[2].y)/3;builtCells.push({label:builtCells.length,latticeColumnIndex:columnIndex,latticeRowIndex:rowIndex,triangleOrientationKind:orientationKind,up:orientationKind===1,cx:centroidX,cy:centroidY})}return builtCells}
 function latticeKeyFromTriangleRecord(triangleRecord){return triangleRecord.latticeColumnIndex+","+triangleRecord.latticeRowIndex+","+triangleRecord.triangleOrientationKind}
+function latticeKeyFromMeshLocalPoint(meshLocalX,meshLocalY){
+var cellIndex,triangleRecord,verts,poly,bestKey=null,bestDist2=1e300,dist2,dx,dy,candidateKey,pickEps=Math.max(1.2,cellSideLength*0.012);
+for(cellIndex=0;cellIndex<cells.length;cellIndex++){
+triangleRecord=cells[cellIndex];
+verts=triVertsFromCell(triangleRecord.latticeColumnIndex,triangleRecord.latticeRowIndex,triangleRecord.triangleOrientationKind,cellSideLength,layoutSpec.originX,layoutSpec.originY);
+poly=[[verts[0].x,verts[0].y],[verts[1].x,verts[1].y],[verts[2].x,verts[2].y]];
+if(pointInPolygonInclusive(meshLocalX,meshLocalY,poly,pickEps)){
+candidateKey=latticeKeyFromTriangleRecord(triangleRecord);
+dx=meshLocalX-triangleRecord.cx;dy=meshLocalY-triangleRecord.cy;dist2=dx*dx+dy*dy;
+if(bestKey===null||dist2<bestDist2-1e-18||(Math.abs(dist2-bestDist2)<1e-18&&compareLatticeKeys(candidateKey,bestKey)<0)){bestDist2=dist2;bestKey=candidateKey;}
+}
+}
+return bestKey;
+}
+function latticeKeyNearestCentroidFallback(meshLocalX,meshLocalY){
+var cellIndex,triangleRecord,bestKey=null,bestDist2=1e300,dist2,dx,dy,maxDist2=(cellSideLength*0.52)*(cellSideLength*0.52);
+for(cellIndex=0;cellIndex<cells.length;cellIndex++){
+triangleRecord=cells[cellIndex];
+dx=meshLocalX-triangleRecord.cx;dy=meshLocalY-triangleRecord.cy;dist2=dx*dx+dy*dy;
+if(dist2<bestDist2){bestDist2=dist2;bestKey=latticeKeyFromTriangleRecord(triangleRecord);}
+}
+if(bestKey!==null&&bestDist2<=maxDist2)return bestKey;
+return null;
+}
 function compareLatticeKeys(firstLatticeKey,secondLatticeKey){
 var firstTriangleRecord=cellMap[firstLatticeKey],secondTriangleRecord=cellMap[secondLatticeKey];
 if(firstTriangleRecord&&secondTriangleRecord){
@@ -952,7 +796,7 @@ var autoRefreshReloadPending=false;
 var telemetryPushTimer=null;
 var maxTel=400;
 var telLines=[];
-function queueTelemetryPush(){if(HEADLESS_SIM)return;if(telemetryPushTimer)clearTimeout(telemetryPushTimer);telemetryPushTimer=setTimeout(function(){telemetryPushTimer=null;bridgePost("/telemetry",{source:"index.html",build:PLAYGROUND_BUILD,lines:telLines.slice(0,400)}).catch(function(){});},220);}
+function queueTelemetryPush(){if(HEADLESS_SIM)return;if(telemetryPushTimer)clearTimeout(telemetryPushTimer);telemetryPushTimer=setTimeout(function(){telemetryPushTimer=null;bridgePost("/telemetry",{source:"playground.html",build:PLAYGROUND_BUILD,lines:telLines.slice(0,400)}).catch(function(){});},220);}
 function tel(messageText){var line=(new Date()).toLocaleTimeString()+"  "+messageText,peekSnippet,peek=document.getElementById("telemetryLatestLinePreview");telLines.unshift(line);if(telLines.length>maxTel)telLines.length=maxTel;var telPanel=document.getElementById("telemetryLogOutputPanel");if(telPanel)telPanel.textContent=telLines.join("\n");if(peek){peekSnippet=messageText.length>130?(messageText.slice(0,127)+"..."):messageText;peek.textContent="latest telemetry: "+peekSnippet;peek.title=line;}queueTelemetryPush();}
 function formatControlLabel(rawButtonText){
 var acronymUpperCaseSet={"MP4":1,"PNG":1,"ON":1,"OFF":1,"CW":1,"CCW":1,"JSON":1,"UI":1,"ID":1},wordParts=cleanUiLabel(rawButtonText).split(" "),titleCasedTokens=[],wordIndex,singleWord,upperWord;
@@ -1240,7 +1084,7 @@ tel("service "+action+" failed: "+(serviceControlError&&serviceControlError.mess
 });
 }
 function pollAutoRefresh(prime){
-return bridgeGet("/page-version?path=index.html").then(function(pageVersionPayload){
+return bridgeGet("/page-version?path=playground.html").then(function(pageVersionPayload){
 var mtimeMsNumber=Number(pageVersionPayload&&pageVersionPayload.mtimeMs||0);
 if(!mtimeMsNumber)return false;
 if(prime||!autoRefreshLastMtime){autoRefreshLastMtime=mtimeMsNumber;return false;}
@@ -1264,7 +1108,7 @@ if(autoRefreshCheckbox&&autoRefreshCheckbox.checked!==enabled)autoRefreshCheckbo
 try{localStorage.setItem("tg_auto_refresh",enabled?"1":"0");}catch(_){}
 if(!enabled){tel("auto refresh: off");return;}
 autoRefreshLastMtime=0;
-tel("auto refresh: on (watching index.html via bridge)");
+tel("auto refresh: on (watching playground.html via bridge)");
 pollAutoRefresh(true);
 autoRefreshTimer=setInterval(function(){pollAutoRefresh(false);},1400);
 }
@@ -1344,7 +1188,7 @@ telExpectFall();
 return true;
 }
 if(typeof fetch!=="function"){var br0=rawPresetFromScriptBundle(which);if(br0&&finishApply(br0))return;if(memPreset&&finishApply(memPreset))return;tel("Container: fetch not available — use **Load**");return;}
-fetch(fetchUrl,{cache:"no-cache"}).then(function(res){if(!res.ok)throw new Error("HTTP "+res.status);return res.json();}).then(function(j){if(finishApply(j))return;tel("Container: fetched "+url+" did not validate as containerCellMask");}).catch(function(err){tel("Container fetch failed ("+fetchUrl+"): "+(err&&err.message?err.message:String(err)));var br=rawPresetFromScriptBundle(which);if(br&&finishApply(br)){tel("Container: "+which+" loaded from presets/playground-default-presets.js (file:// cannot fetch sibling .json)");return;}if(memPreset&&finishApply(memPreset))return;if(finishApply(null))return;tel("Container: could not load "+url+" — add presets/playground-default-presets.js next to index.html, or use **Load**");});
+fetch(fetchUrl,{cache:"no-cache"}).then(function(res){if(!res.ok)throw new Error("HTTP "+res.status);return res.json();}).then(function(j){if(finishApply(j))return;tel("Container: fetched "+url+" did not validate as containerCellMask");}).catch(function(err){tel("Container fetch failed ("+fetchUrl+"): "+(err&&err.message?err.message:String(err)));var br=rawPresetFromScriptBundle(which);if(br&&finishApply(br)){tel("Container: "+which+" loaded from presets/playground-default-presets.js (file:// cannot fetch sibling .json)");return;}if(memPreset&&finishApply(memPreset))return;if(finishApply(null))return;tel("Container: could not load "+url+" — add presets/playground-default-presets.js next to playground.html, or use **Load**");});
 }
 function setOnByIds(ids,label){
 var idSet=new Set(ids||[]),cellIndex,latticeKey;
@@ -1673,8 +1517,8 @@ pathElement.setAttribute("class","tessGrid");
 pathElement.setAttribute("d",tessGridPathFromCells(cells,cellSideLength,layoutOriginX,layoutOriginY));
 for(cellLoopIndex=0;cellLoopIndex<cells.length;cellLoopIndex++){triangleRecord=cells[cellLoopIndex];cellKey=latticeKeyFromTriangleRecord(triangleRecord);pathElement=meshGroup.appendChild(document.createElementNS("http://www.w3.org/2000/svg","path"));
 pathElement.setAttribute("d",pathDFromVerts(triVertsFromCell(triangleRecord.latticeColumnIndex,triangleRecord.latticeRowIndex,triangleRecord.triangleOrientationKind,cellSideLength,layoutOriginX,layoutOriginY)));pathElement.setAttribute("class","hit");
-(function(clickCellKey){pathElement.addEventListener("click",function(){var clickedTriangle=cellMap[clickCellKey];logClick("cell "+(clickedTriangle!=null?clickedTriangle.label:"?")+" ("+(litTriangleKeySet.has(clickCellKey)?"OFF":"ON")+")");truncateToHere();if(litTriangleKeySet.has(clickCellKey)){litTriangleKeySet.delete(clickCellKey);delete litColorByKey[clickCellKey];}else{litTriangleKeySet.add(clickCellKey);assignColorForKey(clickCellKey);}clearPathPreview();clearFallDecisionState();pushSnapshot("toggle");redrawBoard();telExpectFall();});})(cellKey);
 labelTextElement=meshGroup.appendChild(document.createElementNS("http://www.w3.org/2000/svg","text"));labelTextElement.setAttribute("x",String(triangleRecord.cx));labelTextElement.setAttribute("y",String(triangleRecord.cy));labelTextElement.setAttribute("class","L"+(litTriangleKeySet.has(cellKey)?"":" numMuted"));labelTextElement.textContent=String(triangleRecord.label);}
+svgRoot.addEventListener("click",function boardMeshClick(ev){var pt,localPt,ctm,toggleKey,clickedTriangle;try{pt=svgRoot.createSVGPoint();pt.x=ev.clientX;pt.y=ev.clientY;ctm=meshGroup.getScreenCTM()||svgRoot.getScreenCTM();if(!ctm)return;localPt=pt.matrixTransform(ctm.inverse());toggleKey=latticeKeyFromMeshLocalPoint(localPt.x,localPt.y)||latticeKeyNearestCentroidFallback(localPt.x,localPt.y);if(!toggleKey)return;}catch(_){return;}clickedTriangle=cellMap[toggleKey];logClick("cell "+(clickedTriangle!=null?clickedTriangle.label:"?")+" ("+(litTriangleKeySet.has(toggleKey)?"OFF":"ON")+")");truncateToHere();if(litTriangleKeySet.has(toggleKey)){litTriangleKeySet.delete(toggleKey);delete litColorByKey[toggleKey];}else{litTriangleKeySet.add(toggleKey);assignColorForKey(toggleKey);}clearPathPreview();clearFallDecisionState();pushSnapshot("toggle");redrawBoard();telExpectFall();},false);
 trianglesByRowIndex={};for(cellLoopIndex=0;cellLoopIndex<cells.length;cellLoopIndex++){triangleRecord=cells[cellLoopIndex];if(!trianglesByRowIndex[triangleRecord.latticeRowIndex])trianglesByRowIndex[triangleRecord.latticeRowIndex]=[];trianglesByRowIndex[triangleRecord.latticeRowIndex].push(triangleRecord);}sortedRowIndices=Object.keys(trianglesByRowIndex).map(Number).sort(function(firstRowIndex,secondRowIndex){return firstRowIndex-secondRowIndex});
 for(rowLabelLoopIndex=0;rowLabelLoopIndex<sortedRowIndices.length;rowLabelLoopIndex++){rowIndexNumber=sortedRowIndices[rowLabelLoopIndex];var trianglesInMeshRow=trianglesByRowIndex[rowIndexNumber];rowLabelAnchorX=trianglesInMeshRow[0].cx;rowCentroidSumY=0;for(cellLoopIndex=0;cellLoopIndex<trianglesInMeshRow.length;cellLoopIndex++){if(trianglesInMeshRow[cellLoopIndex].cx<rowLabelAnchorX)rowLabelAnchorX=trianglesInMeshRow[cellLoopIndex].cx;rowCentroidSumY+=trianglesInMeshRow[cellLoopIndex].cy;}rowAverageY=rowCentroidSumY/trianglesInMeshRow.length;labelTextElement=meshGroup.appendChild(document.createElementNS("http://www.w3.org/2000/svg","text"));labelTextElement.setAttribute("x",String(rowLabelAnchorX-cellSideLength*0.55));labelTextElement.setAttribute("y",String(rowAverageY));labelTextElement.setAttribute("class","rowR");labelTextElement.textContent="r"+rowIndexNumber;}
 if(fallVisualSourceKey&&fallVisualTargetKey&&cellMap[fallVisualSourceKey]&&cellMap[fallVisualTargetKey]){
@@ -1942,6 +1786,3 @@ applyPlaygroundBuildLabel();
 redrawBoard();updContainerShapeLab();setBridgeUi(false,"Offline — start with: node Sandbox/media-bridge.cjs");setSupervisorUi(false,"Offline — start with: node Sandbox/bridge-supervisor.cjs",false);checkBridgeHealth(true);checkSupervisorHealth(true);setInterval(function(){checkBridgeHealth(true);},4000);setInterval(function(){checkSupervisorHealth(true);},5000);if(!dispatchPollDisabledFromUrl())setInterval(function(){pollBridgeDispatchedCommands();},1200);try{if(localStorage.getItem("tg_auto_refresh")==="1")setAutoRefreshEnabled(true);}catch(_){}tel("Ready — Build "+PLAYGROUND_BUILD+" (also on Container line above). Ctrl+F5 if stale.");telExpectFall();
 (function(){if(typeof fetch!=="function")return;if(HEADLESS_SIM)return;var uT=(typeof URL!=="undefined"&&typeof location!=="undefined")?new URL(CONTAINER_PRESET_FILE_T,location.href).href:CONTAINER_PRESET_FILE_T,uV=(typeof URL!=="undefined"&&typeof location!=="undefined")?new URL(CONTAINER_PRESET_FILE_V,location.href).href:CONTAINER_PRESET_FILE_V;function prefetchPreset(absUrl,whichLetter){fetch(absUrl,{cache:"no-cache"}).then(function(r){if(!r.ok)throw new Error("HTTP "+r.status);return r.json();}).then(function(j){if(!layoutFromCellMaskFile(j))return;if(whichLetter==="V")containerPresetMaskObjectV=j;else containerPresetMaskObjectT=j;}).catch(function(){});}prefetchPreset(uT,"T");prefetchPreset(uV,"V");})();
 })();
-</script>
-</body>
-</html>

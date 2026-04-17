@@ -4,7 +4,7 @@ Last updated: 2026-03-30
 
 ## Where we left off
 
-We aligned **Fall 1 tick** in `Sandbox/index.html` with your “lane + rotation” mental model:
+We aligned **Fall 1 tick** in `Sandbox/playground.html` (logic in `Sandbox/js/playground.js`) with your “lane + rotation” mental model:
 
 1. **Lane step** — Move only to the **same mesh orientation** (`kind`): among downhill cells, **min sideways offset from the gravity line** (`|cross|`), then **shortest step along gravity** (`along`) among **empty** cells in that tier. Skips edge neighbors that would **flip** orientation without a lane move.
 
@@ -14,7 +14,7 @@ We aligned **Fall 1 tick** in `Sandbox/index.html` with your “lane + rotation�
 
 ## Files touched recently
 
-- `Sandbox/index.html` — fall logic (`neighborFallOnce`), help paragraph under the title.
+- `Sandbox/js/playground.js` — fall logic (`neighborFallOnce`); `Sandbox/playground.html` — help paragraph under the title.
 - Earlier in the thread: `Sandbox/presets/container-default-T.json`, `container-default-V.json`, `generate-presets.cjs`, editor mesh/load — for exporting T/V masks as JSON.
 
 ## Open design notes (for when you’re back)
@@ -25,7 +25,7 @@ We aligned **Fall 1 tick** in `Sandbox/index.html` with your “lane + rotation�
 
 ## Quick resume checklist
 
-1. Open `Sandbox/index.html` in a browser (hard refresh if needed: Ctrl+F5).
+1. Open `Sandbox/playground.html` in a browser (hard refresh if needed: Ctrl+F5).
 2. Confirm **BUILD 23** in the sticky header.
 3. Test a few lights + **Fall 1 tick** / **Settle** and read telemetry.
 4. Point the next session at this file + say what felt wrong in play (ids, container T vs mask, etc.).

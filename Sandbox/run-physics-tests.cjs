@@ -262,7 +262,7 @@ async function checkAssertion(page, assertion, ctx) {
 }
 
 async function runOneTest(playwright, sandboxDir, test, defaults, browserChannel, runOpts) {
-  const pageUrl = "file:///" + path.join(sandboxDir, "index.html").replace(/\\/g, "/") + "?nodispatch=1";
+  const pageUrl = "file:///" + path.join(sandboxDir, "playground.html").replace(/\\/g, "/") + "?nodispatch=1";
   const browser = await playwright.chromium.launch({ headless: !!runOpts.headless, channel: browserChannel });
   const page = await browser.newPage({ viewport: { width: 1200, height: 1300 } });
   const ctx = { repoRoot: path.resolve(sandboxDir, ".."), sandboxDir, testName: test.name || "(unnamed)" };

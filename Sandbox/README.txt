@@ -1,6 +1,6 @@
 ﻿Sandbox (not the MAUI game)
 
-index.html
+playground.html
   - Triangle board playground. Open in Chrome (or your default browser).
 
 editor.html
@@ -11,7 +11,7 @@ presets/
   - Regenerate: node Sandbox/presets/generate-presets.cjs
 
 open-in-chrome.bat
-  - Double-click to open index.html in Chrome (fallback: default browser if Chrome path not found).
+  - Double-click to open playground.html in Chrome (fallback: default browser if Chrome path not found).
 
 make-tick-media.ps1
   - Build MP4 + GIF from screenshot frames in this folder.
@@ -30,7 +30,7 @@ media-bridge.cjs
   - Playground command box can call bridge endpoint POST /play-command.
     - Local parser works without any API key.
     - Optional LLM mode: set TG_OPENAI_API_KEY (and optional TG_OPENAI_MODEL) before starting bridge.
-  - Then in index.html use toolbar buttons:
+  - Then in playground.html use toolbar buttons:
       Make MP4/GIF
       MP4->PNG
       Run scenario
@@ -99,7 +99,7 @@ send-play-command.cjs
       node Sandbox/send-play-command.cjs --telemetry --limit 40
   - Requires bridge running:
       node Sandbox/media-bridge.cjs
-  - To execute on the page, keep `index.html` open; it polls `/next-command` and applies dispatched actions.
+  - To execute on the page, keep `playground.html` open; it polls `/next-command` and applies dispatched actions.
 
 From Cursor / VS Code:
   - Ctrl+Shift+P (Command Palette) -> "Tasks: Run Task"
